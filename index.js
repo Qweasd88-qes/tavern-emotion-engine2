@@ -2202,19 +2202,20 @@ async function stripNativeReply(baselineId) {
 
 async function run(trigger) {
   if (!settings.enabled) return;
-  if (busy) { status('上一次推演尚未结束，已跳过'); return; }
+  if (busy) { status('⏳ 上一次推演尚未结束', 2000); return; }
   const myRun = ++runId;
   busy = true;
 
   try {
+    status('🔍 情感引擎：开始处理消息...', 3000);
     const check = validateApi(settings);
-    if (!check.ok) { status(check.message, 5000); return; }
+    if (!check.ok) { status('⚠️ ' + check.message, 5000); return; }
 
     const userMsg = getLastUserMessage();
-    if (!userMsg || !userMsg.message) { status('没读到用户消息，跳过'); return; }
+    if (!userMsg || !userMsg.message) { status('❌ 没读到用户消息', 3000); return; }
 
     const baselineId = Number(userMsg.message_id ?? -1);
-    status('① 解构人设 · 划信息边界 · 分配戏份…', 0);
+    status('① 正在分析人设与信息边界...', 0);
 
     let draft = null;
     let degraded = false;
@@ -2227,11 +2228,12 @@ async function run(trigger) {
       );
       draft = res.draft;
       directives = compileDirectives(draft, settings);
+      status('✅ 分析完成，正在执行生成...', 0);
     } catch (e) {
       console.warn('[情感引擎] 推演失败，降级：', e);
       degraded = true;
       directives = fallbackDirectives(settings);
-      status(`推演失败，已降级：${String(e.message || e).slice(0, 80)}`, 4000);
+      status(`⚠️ 分析异常(已降级)：${String(e.message || e).slice(0, 50)}`, 4000);
     }
 
     if (myRun !== runId) return;
@@ -2239,20 +2241,21 @@ async function run(trigger) {
     if (settings.mode === 'inject') {
       await saveDraftVariable(directives);
       await logDraft(directives);
-      status('② 推演已存入变量，在预设中加入 {{get_chat_variable::ee.draft}} 生效', 5000);
+      status('📦 推演已存入变量', 4000);
       return;
     }
 
     if (settings.mode === 'rewrite' && trigger === 'auto') {
-      status('① 推演完成，等待原生生成结束…', 0);
-      await waitFor(EVENTS.GENERATION_ENDED, 120000);
+      status('⌛ 等待原生回复结束...', 0);
+      const ended = await waitFor(EVENTS.GENERATION_ENDED, 120000);
+      if (!ended) { status('❌ 等待原生生成超时', 4000); return; }
       if (myRun !== runId) return;
       await stripNativeReply(baselineId);
     }
 
     if (myRun !== runId) return;
 
-    status('② 带约束生成…', 0);
+    status('② 正在生成受约束的回复...', 0);
     const before = getLastMessage();
     const beforeId = Number(before?.message_id ?? -1);
 
@@ -2282,15 +2285,16 @@ async function run(trigger) {
       : Number(after?.message_id ?? beforeId);
 
     if (targetId !== undefined && targetId !== null && Number(targetId) > -1) {
-      await sleep(500);
+      status('③ 正在注入美化卡片...', 0);
+      await sleep(600);
       await prependCard(draft, degraded, targetId);
+      status('✨ 任务完成：回复已美化', 3500);
     }
 
     if (draft && settings.keepDraftLog) await logDraft(JSON.stringify(draft, null, 2));
-    hideStatus();
   } catch (e) {
     console.error('[情感引擎]', e);
-    status(`情感引擎出错：${String(e.message || e).slice(0, 120)}`, 6000);
+    status(`❌ 引擎出错：${String(e.message || e).slice(0, 100)}`, 6000);
   } finally {
     if (myRun === runId) busy = false;
   }
@@ -2358,32 +2362,39 @@ function boot() {
   const setupEvents = (attempt = 0) => {
     const eventOn = g('eventOn');
     if (eventOn) {
-      if (settings.mode !== 'manual') {
-        try {
-          eventOn(EVENTS.MESSAGE_RECEIVED, (messageId, type) => {
-            if (!settings.enabled || settings.mode === 'manual') return;
-            if (typeof type === 'string' && ['command', 'impersonate', 'extension'].includes(type)) return;
-            setTimeout(() => run('auto'), 0);
-          });
-        } catch (e) { console.warn('[情感引擎] 事件注册失败：', e); }
-      }
+      const triggerRun = (messageId, type) => {
+        if (!settings.enabled || settings.mode === 'manual') return;
+        // 排除掉非用户触发的干扰
+        if (typeof type === 'string' && ['command', 'extension', 'impersonate'].includes(type)) return;
+        console.log('[情感引擎] 捕获到消息触发点:', type);
+        setTimeout(() => run('auto'), 0);
+      };
 
-      for (const evt of [EVENTS.CHAT_CHANGED, EVENTS.GENERATION_ENDED]) {
+      try {
+        // 多重监听保障：message_received, character_message_received, generation_started
+        eventOn(EVENTS.MESSAGE_RECEIVED, triggerRun);
+        eventOn('character_message_received', triggerRun);
+        eventOn('generation_started', () => {
+           console.log('[情感引擎] 监听到生成开始');
+        });
+      } catch (e) { console.warn('[情感引擎] 事件注册异常：', e); }
+
+      for (const evt of [EVENTS.CHAT_CHANGED, EVENTS.GENERATION_ENDED, 'swiped']) {
         try {
           eventOn(evt, () => {
             if (!settings.showCard) return;
-            setTimeout(() => restoreCards(), 220);
+            setTimeout(() => restoreCards(), 300);
           });
         } catch {}
       }
-      const msg = '[情感引擎] 事件注册成功';
-      console.log(msg);
-      status(msg, 3000);
-    } else if (attempt < 20) {
+      const msg = '✅ 系统监听就绪';
+      console.log('[情感引擎] ' + msg);
+      status(msg, 2000);
+    } else if (attempt < 30) {
       setTimeout(() => setupEvents(attempt + 1), 500);
     } else {
-      const msg = '[情感引擎] 未找到 eventOn，自动触发可能失效';
-      console.warn(msg);
+      const msg = '⚠️ 未能绑定官方事件';
+      console.warn('[情感引擎] ' + msg);
       status(msg, 5000);
     }
   };
