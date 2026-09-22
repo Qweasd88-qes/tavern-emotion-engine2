@@ -557,13 +557,36 @@ function hostDoc() {
   if (_hostDocCache) {
     try { if (_hostDocCache.body) return _hostDocCache; } catch { _hostDocCache = null; }
   }
-  
-  const docs = [];
-  try { docs.push(document); } catch {}
+
+  let current = window;
+  let outermostDoc = document;
+
+  // 向上探测最外层可访问的 document
+  while (current) {
+    try {
+      if (current.document && current.document.body) {
+        outermostDoc = current.document;
+      }
+      if (current.parent === current || !current.parent) break;
+      current = current.parent;
+    } catch (e) {
+      break; // 跨域限制，停止探测
+    }
+  }
+
+  // 进一步验证是否包含酒馆关键元素
+  try {
+    if (outermostDoc.querySelector('#chat') || outermostDoc.querySelector('.mes') || outermostDoc.querySelector('#chat_log')) {
+      _hostDocCache = outermostDoc;
+      return outermostDoc;
+    }
+  } catch (e) {}
+
+  // 如果最外层没找到（可能在某些特殊的嵌入环境下），尝试在所有层级找一遍
+  const docs = [document];
   try { if (window.parent && window.parent !== window) docs.push(window.parent.document); } catch {}
   try { if (window.top && window.top !== window) docs.push(window.top.document); } catch {}
 
-  // 寻找包含酒馆特征元素的 document
   for (const d of docs) {
     try {
       if (d && (d.querySelector('#chat') || d.querySelector('.mes') || d.querySelector('#chat_log'))) {
@@ -573,11 +596,7 @@ function hostDoc() {
     } catch {}
   }
 
-  // 兜底方案
-  try {
-    if (window.parent && window.parent.document && window.parent.document.body) return window.parent.document;
-  } catch {}
-  return document;
+  return outermostDoc;
 }
 
 function candidateDocs() {
