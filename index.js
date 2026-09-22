@@ -1016,132 +1016,129 @@ const PRESETS = {
 const CSS = `
 :root {
   --ee-primary: #8b5cf6;
-  --ee-primary-light: #a78bfa;
-  --ee-bg: rgba(15, 15, 20, 0.85);
-  --ee-border: rgba(255, 255, 255, 0.1);
-  --ee-text: #eef2ff;
+  --ee-primary-grad: linear-gradient(135deg, #6366f1, #8b5cf6);
+  --ee-bg: rgba(20, 20, 30, 0.9);
+  --ee-border: rgba(255, 255, 255, 0.12);
+  --ee-text: #f8fafc;
   --ee-text-dim: #94a3b8;
+  --ee-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
 }
 
 #ee-fab {
-  position: fixed; right: 24px; bottom: 24px; z-index: 99998;
-  width: 56px; height: 56px; border-radius: 20px;
-  border: none; cursor: pointer;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white; font-size: 22px; font-weight: bold;
-  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4);
+  position: fixed; left: 50%; bottom: 100px; z-index: 2000000;
+  width: 60px; height: 60px; border-radius: 22px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.2); cursor: pointer;
+  background: var(--ee-primary-grad);
+  color: white; font-size: 24px; font-weight: bold;
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.5), inset 0 0 15px rgba(255, 255, 255, 0.2);
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(8px);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  user-select: none; touch-action: none;
 }
-#ee-fab:hover { transform: translateY(-4px) scale(1.05); box-shadow: 0 12px 40px rgba(99, 102, 241, 0.5); }
-#ee-fab:active { transform: scale(0.95); }
+#ee-fab:active { transform: translateX(-50%) scale(0.9); }
+#ee-fab.ee-dragging { transition: none; opacity: 0.8; }
 
 #ee-backdrop {
-  position: fixed; inset: 0; z-index: 99998;
-  background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+  position: fixed; inset: 0; z-index: 2000001;
+  background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
 }
 #ee-backdrop.ee-open { opacity: 1; pointer-events: auto; }
 
 #ee-panel {
-  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 95vw); z-index: 99999;
+  position: fixed; top: 50%; left: 50%; z-index: 2000002;
+  width: min(420px, 92vw); max-height: 85vh;
   background: var(--ee-bg); color: var(--ee-text);
-  box-shadow: -20px 0 60px rgba(0, 0, 0, 0.5);
-  transform: translateX(100%); transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--ee-shadow);
+  transform: translate(-50%, -45%) scale(0.9); opacity: 0;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex; flex-direction: column; overflow: hidden;
-  border-left: 1px solid var(--ee-border);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  border: 1px solid var(--ee-border); border-radius: 28px;
+  font-family: -apple-system, system-ui, sans-serif;
+  pointer-events: none;
 }
-#ee-panel.ee-open { transform: translateX(0); }
+#ee-panel.ee-open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
 
 .ee-header {
-  padding: 24px 28px; background: rgba(255, 255, 255, 0.03);
+  padding: 20px 24px; background: rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid var(--ee-border);
   display: flex; align-items: center; justify-content: space-between;
 }
-.ee-header-title { display: flex; align-items: center; gap: 12px; }
-.ee-header-title i { font-size: 24px; color: var(--ee-primary-light); text-shadow: 0 0 12px rgba(139, 92, 246, 0.5); }
-.ee-header-title h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
+.ee-header-title { display: flex; align-items: center; gap: 14px; }
+.ee-header-title i { 
+  font-size: 26px; font-style: normal;
+  background: var(--ee-primary-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.4));
+}
+.ee-header-title h2 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -0.5px; }
 
 .ee-close {
-  background: rgba(255, 255, 255, 0.05); border: none; color: #94a3b8;
-  width: 32px; height: 32px; border-radius: 10px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.08); border: none; color: #94a3b8;
+  width: 34px; height: 34px; border-radius: 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
 }
-.ee-close:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; }
 
-.ee-content { flex: 1; overflow-y: auto; padding: 20px 28px; scrollbar-width: thin; }
-.ee-content::-webkit-scrollbar { width: 4px; }
-.ee-content::-webkit-scrollbar-thumb { background: var(--ee-border); border-radius: 10px; }
+.ee-content { flex: 1; overflow-y: auto; padding: 24px; scrollbar-width: none; }
+.ee-content::-webkit-scrollbar { display: none; }
 
-.ee-section { margin-bottom: 28px; }
+.ee-section { margin-bottom: 24px; }
 .ee-section-label { 
-  display: block; font-size: 12px; font-weight: 700; color: var(--ee-primary-light);
-  text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px;
+  display: block; font-size: 11px; font-weight: 800; color: var(--ee-primary-light);
+  text-transform: uppercase; letter-spacing: 2px; margin-bottom: 14px; opacity: 0.8;
 }
 
 .ee-group { 
   background: rgba(255, 255, 255, 0.03); border: 1px solid var(--ee-border);
-  border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 14px;
 }
 
-.ee-input-wrap { display: flex; flex-direction: column; gap: 6px; }
-.ee-label { font-size: 13px; color: #cbd5e1; font-weight: 500; }
+.ee-input-wrap { display: flex; flex-direction: column; gap: 8px; }
+.ee-label { font-size: 13px; color: #94a3b8; font-weight: 600; }
 .ee-input {
-  background: rgba(0, 0, 0, 0.2); border: 1px solid var(--ee-border);
-  border-radius: 12px; padding: 10px 14px; color: white; font-size: 14px;
-  outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  background: rgba(0, 0, 0, 0.3); border: 1px solid var(--ee-border);
+  border-radius: 14px; padding: 12px 16px; color: white; font-size: 14px;
+  outline: none; transition: all 0.2s;
 }
-.ee-input:focus { border-color: var(--ee-primary); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); }
-
-.ee-row-flex { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-
-.ee-btn-row { display: flex; gap: 10px; margin-top: 8px; }
-.ee-btn {
-  flex: 1; padding: 10px 16px; border-radius: 12px; border: none;
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.ee-btn-primary { background: var(--ee-primary); color: white; }
-.ee-btn-primary:hover { background: var(--ee-primary-light); transform: translateY(-1px); }
-.ee-btn-secondary { background: rgba(255, 255, 255, 0.08); color: #e2e8f0; }
-.ee-btn-secondary:hover { background: rgba(255, 255, 255, 0.12); }
-.ee-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ee-input:focus { border-color: var(--ee-primary); background: rgba(0,0,0,0.4); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); }
 
 .ee-footer {
-  padding: 24px 28px; background: rgba(0,0,0,0.1); border-top: 1px solid var(--ee-border);
+  padding: 20px 24px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--ee-border);
   display: flex; gap: 12px;
 }
 
 #ee-status {
-  position: fixed; left: 50%; top: 24px; transform: translateX(-50%); z-index: 1000000;
-  background: rgba(30, 30, 45, 0.9); color: white; border: 1px solid var(--ee-border);
-  border-radius: 14px; padding: 12px 24px; font-size: 14px; font-weight: 500;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); backdrop-filter: blur(12px);
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: fixed; left: 50%; top: 30px; transform: translateX(-50%) translateY(-20px); z-index: 3000000;
+  background: rgba(15, 23, 42, 0.9); color: #fff; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 100px; padding: 10px 24px; font-size: 13px; font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(12px);
+  opacity: 0; pointer-events: none; transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+  display: flex; align-items: center; gap: 10px;
 }
-
-.ee-model-tag {
-  font-size: 11px; background: rgba(139, 92, 246, 0.15); color: var(--ee-primary-light);
-  padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(139, 92, 246, 0.2);
-}
+#ee-status.ee-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#ee-status::before { content: '✦'; color: var(--ee-primary-light); animation: ee-spin 3s linear infinite; }
 
 .ee-splash {
-  position: fixed; inset: 0; z-index: 1000001; background: #0f172a;
+  position: fixed; inset: 0; z-index: 4000000; background: #020617;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  transition: opacity 0.8s ease; pointer-events: none;
+  transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none;
 }
 .ee-splash-logo {
-  width: 90px; height: 90px; border-radius: 24px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  width: 100px; height: 100px; border-radius: 30px;
+  background: var(--ee-primary-grad);
   display: flex; align-items: center; justify-content: center;
-  font-size: 44px; color: white; margin-bottom: 24px;
-  box-shadow: 0 20px 50px rgba(99, 102, 241, 0.3);
-  animation: ee-float 3s ease-in-out infinite;
+  font-size: 50px; color: white; margin-bottom: 28px;
+  box-shadow: 0 0 60px rgba(99, 102, 241, 0.4);
+  position: relative;
 }
-@keyframes ee-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.ee-splash-logo::after {
+  content: ''; position: absolute; inset: -10px; border-radius: 40px;
+  border: 2px solid var(--ee-primary); opacity: 0.3; animation: ee-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ee-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes ee-ping { 75%, 100% { transform: scale(1.4); opacity: 0; } }
 `;
 
 function ensureCss() {
@@ -1155,7 +1152,7 @@ function ensureCss() {
 }
 
 let statusTimer = null;
-function status(text, ms = 2600) {
+function status(text, ms = 3000) {
   try { if (settingsRef && settingsRef.showStatus === false) return; } catch {}
   const d = hostDoc() || document;
   let el = d.getElementById(STATUS_ID);
@@ -1166,18 +1163,16 @@ function status(text, ms = 2600) {
     (d.body || d.documentElement).appendChild(el);
   }
   el.textContent = text;
-  el.style.display = 'block';
-  el.style.opacity = '1';
+  el.classList.add('ee-show');
   clearTimeout(statusTimer);
   if (ms > 0) statusTimer = setTimeout(() => {
-    el.style.opacity = '0';
-    setTimeout(() => { el.style.display = 'none'; }, 200);
+    el.classList.remove('ee-show');
   }, ms);
 }
 function hideStatus() {
   const d = hostDoc() || document;
   const el = d.getElementById(STATUS_ID);
-  if (el) { el.style.opacity = '0'; el.style.display = 'none'; }
+  if (el) { el.classList.remove('ee-show'); }
 }
 
 function esc(v) {
@@ -1474,20 +1469,21 @@ function setupFab() {
 
   const btn = d.createElement('button');
   btn.id = BTN_ID;
-  btn.title = '情感引擎 · 设置（按住 Shift 点击 = 立即执行一次推演）';
+  btn.title = '情感引擎 · 配置';
   btn.textContent = '情';
   (d.body || d.documentElement).appendChild(btn);
 
   // 拖动逻辑
   let dragging = false, moved = false;
-  let startX = 0, startY = 0, startRight = 20, startBottom = 20;
+  let startX = 0, startY = 0, initialX = 0, initialY = 0;
 
   const onDown = (e) => {
     const pt = e.touches ? e.touches[0] : e;
     dragging = true; moved = false;
     startX = pt.clientX; startY = pt.clientY;
-    startRight = parseFloat(btn.style.right || 20);
-    startBottom = parseFloat(btn.style.bottom || 20);
+    const rect = btn.getBoundingClientRect();
+    initialX = rect.left + rect.width / 2;
+    initialY = rect.top + rect.height / 2;
     btn.classList.add('ee-dragging');
   };
   const onMove = (e) => {
@@ -1495,15 +1491,14 @@ function setupFab() {
     const pt = e.touches ? e.touches[0] : e;
     const dx = pt.clientX - startX;
     const dy = pt.clientY - startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-    const w = d.documentElement.clientWidth;
-    const h = d.documentElement.clientHeight;
-    let newRight = startRight - dx;
-    let newBottom = startBottom - dy;
-    newRight = Math.max(4, Math.min(w - 54, newRight));
-    newBottom = Math.max(4, Math.min(h - 54, newBottom));
-    btn.style.right = newRight + 'px';
-    btn.style.bottom = newBottom + 'px';
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) moved = true;
+    
+    const newX = initialX + dx;
+    const newY = initialY + dy;
+    btn.style.left = newX + 'px';
+    btn.style.top = newY + 'px';
+    btn.style.bottom = 'auto';
+    btn.style.transform = 'translate(-50%, -50%)';
     try { e.preventDefault(); } catch {}
   };
   const onUp = () => {
@@ -1511,10 +1506,8 @@ function setupFab() {
     dragging = false;
     btn.classList.remove('ee-dragging');
     if (moved) {
-      // 保存位置
       try {
-        localStorage.setItem('ee:fab-right', btn.style.right);
-        localStorage.setItem('ee:fab-bottom', btn.style.bottom);
+        localStorage.setItem('ee:fab-pos', JSON.stringify({ left: btn.style.left, top: btn.style.top }));
       } catch {}
     }
   };
@@ -1528,19 +1521,17 @@ function setupFab() {
 
   // 恢复位置
   try {
-    const r = localStorage.getItem('ee:fab-right');
-    const b = localStorage.getItem('ee:fab-bottom');
-    if (r) btn.style.right = r;
-    if (b) btn.style.bottom = b;
+    const pos = JSON.parse(localStorage.getItem('ee:fab-pos'));
+    if (pos && pos.left && pos.top) {
+      btn.style.left = pos.left;
+      btn.style.top = pos.top;
+      btn.style.bottom = 'auto';
+      btn.style.transform = 'translate(-50%, -50%)';
+    }
   } catch {}
 
-  // 点击
   btn.addEventListener('click', (ev) => {
     if (moved) return;
-    if (ev.shiftKey) {
-      const onRun = window.__ee_manual_run__;
-      if (typeof onRun === 'function') { onRun(); return; }
-    }
     openPanel();
   });
 }
