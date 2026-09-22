@@ -557,28 +557,27 @@ function hostDoc() {
   if (_hostDocCache) {
     try { if (_hostDocCache.body) return _hostDocCache; } catch { _hostDocCache = null; }
   }
-  // ① 优先：父页面（脚本在 iframe 里执行）
+  
+  const docs = [];
+  try { docs.push(document); } catch {}
+  try { if (window.parent && window.parent !== window) docs.push(window.parent.document); } catch {}
+  try { if (window.top && window.top !== window) docs.push(window.top.document); } catch {}
+
+  // 寻找包含酒馆特征元素的 document
+  for (const d of docs) {
+    try {
+      if (d && (d.querySelector('#chat') || d.querySelector('.mes') || d.querySelector('#chat_log'))) {
+        _hostDocCache = d;
+        return d;
+      }
+    } catch {}
+  }
+
+  // 兜底方案
   try {
-    if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
-      const pd = window.parent.document;
-      if (pd && pd.body) { _hostDocCache = pd; return pd; }
-    }
-  } catch { /* 跨域忽略 */ }
-  // ② 其次：顶层页面
-  try {
-    if (typeof window !== 'undefined' && window.top && window.top !== window) {
-      const td = window.top.document;
-      if (td && td.body) { _hostDocCache = td; return td; }
-    }
-  } catch { /* 跨域忽略 */ }
-  // ③ 最后：自身（脚本直接跑在主页面时）
-  try {
-    if (typeof document !== 'undefined' && document.body) {
-      _hostDocCache = document;
-      return document;
-    }
-  } catch { /* 忽略 */ }
-  return null;
+    if (window.parent && window.parent.document && window.parent.document.body) return window.parent.document;
+  } catch {}
+  return document;
 }
 
 function candidateDocs() {
@@ -1537,9 +1536,16 @@ const { PLANNER_SYSTEM, buildPlannerUserPrompt } = __req('prompts.js');
 const { normalizeBase } = __req('config.js');
 
 function g(name) {
-  try {
-    return typeof window !== 'undefined' && typeof window[name] === 'function' ? window[name] : undefined;
-  } catch { return undefined; }
+  const windows = [window];
+  try { if (window.parent && window.parent !== window) windows.push(window.parent); } catch {}
+  try { if (window.top && window.top !== window) windows.push(window.top); } catch {}
+  
+  for (const w of windows) {
+    try {
+      if (typeof w[name] === 'function') return w[name];
+    } catch {}
+  }
+  return undefined;
 }
 
 function withTimeout(promise, ms, label) {
@@ -1624,28 +1630,35 @@ function normalizeDraft(raw) {
 }
 
 function tryGetCharacterCard() {
+  const windows = [window];
+  try { if (window.parent && window.parent !== window) windows.push(window.parent); } catch {}
+  try { if (window.top && window.top !== window) windows.push(window.top); } catch {}
+
   const attempts = [
-    () => (typeof SillyTavern !== 'undefined' && SillyTavern.getContext ? SillyTavern.getContext() : null),
-    () => (window.SillyTavern && window.SillyTavern.getContext ? window.SillyTavern.getContext() : null),
-    () => (window.TavernHelper && window.TavernHelper.getContext ? window.TavernHelper.getContext() : null),
-    () => (typeof getContext === 'function' ? getContext() : null),
+    (w) => (typeof w.SillyTavern !== 'undefined' && w.SillyTavern.getContext ? w.SillyTavern.getContext() : null),
+    (w) => (w.SillyTavern && w.SillyTavern.getContext ? w.SillyTavern.getContext() : null),
+    (w) => (w.TavernHelper && w.TavernHelper.getContext ? w.TavernHelper.getContext() : null),
+    (w) => (typeof w.getContext === 'function' ? w.getContext() : null),
   ];
-  for (const fn of attempts) {
-    try {
-      const ctx = fn();
-      if (!ctx) continue;
-      const list = ctx.characters;
-      const id = ctx.characterId ?? ctx.this_chid ?? (typeof this_chid !== 'undefined' ? this_chid : undefined);
-      const ch = Array.isArray(list) ? list[id] : null;
-      if (ch) {
-        return {
-          name: ch.name ?? ch.data?.name ?? '',
-          description: ch.description ?? ch.data?.description ?? '',
-          personality: ch.personality ?? ch.data?.personality ?? '',
-          scenario: ch.scenario ?? ch.data?.scenario ?? '',
-        };
-      }
-    } catch {}
+
+  for (const w of windows) {
+    for (const fn of attempts) {
+      try {
+        const ctx = fn(w);
+        if (!ctx) continue;
+        const list = ctx.characters;
+        const id = ctx.characterId ?? ctx.this_chid ?? (typeof w.this_chid !== 'undefined' ? w.this_chid : undefined);
+        const ch = Array.isArray(list) ? list[id] : null;
+        if (ch) {
+          return {
+            name: ch.name ?? ch.data?.name ?? '',
+            description: ch.description ?? ch.data?.description ?? '',
+            personality: ch.personality ?? ch.data?.personality ?? '',
+            scenario: ch.scenario ?? ch.data?.scenario ?? '',
+          };
+        }
+      } catch {}
+    }
   }
   return null;
 }
@@ -1789,16 +1802,30 @@ let runId = 0;
 let busy = false;
 
 function g(name) {
-  try {
-    return typeof window !== 'undefined' && typeof window[name] === 'function' ? window[name] : undefined;
-  } catch { return undefined; }
+  const windows = [window];
+  try { if (window.parent && window.parent !== window) windows.push(window.parent); } catch {}
+  try { if (window.top && window.top !== window) windows.push(window.top); } catch {}
+  
+  for (const w of windows) {
+    try {
+      if (typeof w[name] === 'function') return w[name];
+    } catch {}
+  }
+  return undefined;
 }
 
 function ev(name, fallback) {
-  try {
-    const obj = typeof window !== 'undefined' ? window.tavern_events || window.iframe_events : null;
-    return (obj && obj[name]) || fallback;
-  } catch { return fallback; }
+  const windows = [window];
+  try { if (window.parent && window.parent !== window) windows.push(window.parent); } catch {}
+  try { if (window.top && window.top !== window) windows.push(window.top); } catch {}
+  
+  for (const w of windows) {
+    try {
+      const obj = w.tavern_events || w.iframe_events;
+      if (obj && obj[name]) return obj[name];
+    } catch {}
+  }
+  return fallback;
 }
 
 const EVENTS = {
@@ -1955,11 +1982,11 @@ async function prependCard(draft, degraded, messageId) {
 
   if (mode === 'dom') {
     let lastReason = '';
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 15; i++) {
       const r = injectCardIntoFloor(messageId, draft, settings, degraded);
       if (r && r.ok) return true;
       lastReason = (r && r.reason) || '';
-      await sleep(220);
+      await sleep(300);
     }
     console.warn('[情感引擎] DOM 注入失败：', lastReason, '| 环境：', envReport());
     status(`卡片注入失败（${lastReason}），已退回代码块`, 5000);
@@ -2156,7 +2183,7 @@ async function run(trigger) {
       : Number(after?.message_id ?? beforeId);
 
     if (targetId !== undefined && targetId !== null && Number(targetId) > -1) {
-      await sleep(260);
+      await sleep(500);
       await prependCard(draft, degraded, targetId);
     }
 
@@ -2228,27 +2255,36 @@ function boot() {
     () => diagnose()
   );
 
-  const eventOn = g('eventOn');
-  if (eventOn && settings.mode !== 'manual') {
-    try {
-      eventOn(EVENTS.MESSAGE_RECEIVED, (messageId, type) => {
-        if (!settings.enabled || settings.mode === 'manual') return;
-        if (typeof type === 'string' && ['command', 'impersonate', 'extension'].includes(type)) return;
-        setTimeout(() => run('auto'), 0);
-      });
-    } catch (e) { console.warn('[情感引擎] 事件注册失败：', e); }
-  }
+  const setupEvents = (attempt = 0) => {
+    const eventOn = g('eventOn');
+    if (eventOn) {
+      if (settings.mode !== 'manual') {
+        try {
+          eventOn(EVENTS.MESSAGE_RECEIVED, (messageId, type) => {
+            if (!settings.enabled || settings.mode === 'manual') return;
+            if (typeof type === 'string' && ['command', 'impersonate', 'extension'].includes(type)) return;
+            setTimeout(() => run('auto'), 0);
+          });
+        } catch (e) { console.warn('[情感引擎] 事件注册失败：', e); }
+      }
 
-  if (eventOn) {
-    for (const evt of [EVENTS.CHAT_CHANGED, EVENTS.GENERATION_ENDED]) {
-      try {
-        eventOn(evt, () => {
-          if (!settings.showCard) return;
-          setTimeout(() => restoreCards(), 220);
-        });
-      } catch {}
+      for (const evt of [EVENTS.CHAT_CHANGED, EVENTS.GENERATION_ENDED]) {
+        try {
+          eventOn(evt, () => {
+            if (!settings.showCard) return;
+            setTimeout(() => restoreCards(), 220);
+          });
+        } catch {}
+      }
+      console.log('[情感引擎] 事件注册成功');
+    } else if (attempt < 20) {
+      setTimeout(() => setupEvents(attempt + 1), 500);
+    } else {
+      console.warn('[情感引擎] 未找到 eventOn，自动触发可能失效');
     }
-  }
+  };
+
+  setupEvents();
   setTimeout(() => restoreCards(), 700);
   setTimeout(() => startGuard(), 900);
 
