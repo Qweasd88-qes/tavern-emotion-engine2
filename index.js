@@ -882,12 +882,14 @@ function findLastFloor(doc) {
 }
 
 function gHostJQuery() {
-  const windows = [window];
-  try { if (window.parent && window.parent !== window) windows.push(window.parent); } catch {}
-  try { if (window.top && window.top !== window) windows.push(window.top); } catch {}
-  for (const w of windows) {
-    try { if (w && (w.jQuery || w.$)) return w.jQuery || w.$; } catch {}
-  }
+  try {
+    const windows = [window, window.parent, window.top];
+    for (const w of windows) {
+      try {
+        if (w && (w.jQuery || w.$)) return w.jQuery || w.$;
+      } catch (e) {}
+    }
+  } catch (e) {}
   return null;
 }
 
@@ -1124,8 +1126,7 @@ function ensureCss() {
   (d.head || d.documentElement || d.body).appendChild(el);
 }
 
-let statusTimer = null;
-function status(text, ms = 3000) {
+function status(text, ms = 4000) {
   try { if (settingsRef && settingsRef.showStatus === false) return; } catch {}
   const d = hostDoc() || document;
   let el = d.getElementById(STATUS_ID);
@@ -1135,8 +1136,15 @@ function status(text, ms = 3000) {
     el.id = STATUS_ID;
     (d.body || d.documentElement).appendChild(el);
   }
-  el.textContent = text;
+  el.innerHTML = `<span style="color:#8b5cf6;margin-right:8px;font-weight:bold;">✦</span>${text}`;
   el.classList.add('ee-show');
+  
+  // 强制实色显示，防止被主题覆盖
+  el.style.backgroundColor = '#111111';
+  el.style.color = '#ffffff';
+  el.style.opacity = '1';
+  el.style.border = '2px solid #8b5cf6';
+  
   clearTimeout(statusTimer);
   if (ms > 0) statusTimer = setTimeout(() => {
     el.classList.remove('ee-show');
