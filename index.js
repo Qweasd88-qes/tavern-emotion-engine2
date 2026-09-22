@@ -845,16 +845,38 @@ function findFloor(messageId, doc) {
   if (!d) return null;
   const $ = gHostJQuery();
   
-  if (messageId !== undefined && messageId !== null) {
+  if (messageId !== undefined && messageId !== null && String(messageId) !== 'null') {
     const id = String(messageId);
     if ($) {
       const $el = $(`.mes[mesid="${id}"], .mes[data-mesid="${id}"], [mesid="${id}"]`, d);
       if ($el.length) return $el[0];
     }
-    const idSels = [`[mesid="${id}"]`, `[data-mesid="${id}"]`];
+    const idSels = [`.mes[mesid="${id}"]`, `[mesid="${id}"]`, `[data-mesid="${id}"]`];
     for (const s of idSels) {
       try { const el = d.querySelector(s); if (el) return el; } catch {}
     }
+  } else {
+    return findLastFloor(d);
+  }
+  return null;
+}
+
+function findLastFloor(doc) {
+  const d = doc || hostDoc();
+  if (!d) return null;
+  const $ = gHostJQuery();
+  if ($) {
+    try {
+      const $el = $('.mes', d).last();
+      if ($el.length) return $el[0];
+    } catch {}
+  }
+  const selectors = ['#chat .mes', '.mes', '#chat_log .mes'];
+  for (const sel of selectors) {
+    try {
+      const list = d.querySelectorAll(sel);
+      if (list && list.length) return list[list.length - 1];
+    } catch {}
   }
   return null;
 }
@@ -864,9 +886,26 @@ function gHostJQuery() {
   try { if (window.parent && window.parent !== window) windows.push(window.parent); } catch {}
   try { if (window.top && window.top !== window) windows.push(window.top); } catch {}
   for (const w of windows) {
-    try { if (w.jQuery || w.$) return w.jQuery || w.$; } catch {}
+    try { if (w && (w.jQuery || w.$)) return w.jQuery || w.$; } catch {}
   }
   return null;
+}
+
+function insertionTarget(floor) {
+  if (!floor) return null;
+  const selectors = ['.mes_text', '.mes_block', '.chathistory_item_text', '.mes_container', '.message-content'];
+  for (const sel of selectors) {
+    try {
+      const t = floor.querySelector(sel);
+      if (t) return t;
+    } catch {}
+  }
+  return floor;
+}
+
+function alreadyHasCard(floor) {
+  if (!floor) return false;
+  return !!floor.querySelector('[data-ee-card]');
 }
 
 function injectCardIntoFloor(messageId, draft, settings, degraded) {
@@ -875,7 +914,7 @@ function injectCardIntoFloor(messageId, draft, settings, degraded) {
 
   const floor = findFloor(messageId, d);
   if (!floor) return { ok: false, reason: '找不到消息楼层' };
-  if (floor.querySelector('[data-ee-card]')) return { ok: true, reason: '已有卡片' };
+  if (alreadyHasCard(floor)) return { ok: true, reason: '已有卡片' };
 
   ensureStyle(d);
   const cardEl = renderCardElement(draft, settings, degraded, d);
