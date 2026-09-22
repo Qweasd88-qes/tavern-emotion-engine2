@@ -980,7 +980,7 @@ function hasCard(text) {
   return t.indexOf('情感推演') !== -1 && t.indexOf('```html') !== -1;
 }
 
-  return { renderCard, hasCard, renderCardElement, injectCardIntoFloor, findFloor, findLastFloor, ensureStyle, hostDoc, candidateDocs, envReport };
+  return { renderCard, hasCard, renderCardElement, injectCardIntoFloor, findFloor, findLastFloor, ensureStyle, hostDoc, candidateDocs, envReport, gHostJQuery };
 };
 
 
@@ -997,7 +997,7 @@ __defs['ui.js'] = function () {
  */
 
 const { loadSettings, saveSettings, resetSettings } = __req('config.js');
-const { hostDoc } = __req('card.js');
+const { hostDoc, gHostJQuery } = __req('card.js');
 const { fetchModels } = __req('planner.js');
 
 const BTN_ID = 'ee-fab';
@@ -1890,7 +1890,7 @@ __defs['index.js'] = function () {
 const { loadSettings, validateApi, normalizeBase } = __req('config.js');
 const { runPlanner } = __req('planner.js');
 const { compileDirectives, fallbackDirectives } = __req('prompts.js');
-const { renderCard, hasCard, injectCardIntoFloor, ensureStyle, hostDoc, envReport } = __req('card.js');
+const { renderCard, hasCard, injectCardIntoFloor, ensureStyle, hostDoc, envReport, gHostJQuery } = __req('card.js');
 const { mountUi, syncSettings, status, hideStatus, showSplash } = __req('ui.js');
 
 const NS = 'ee';
