@@ -1008,6 +1008,7 @@ const STYLE_ID = 'ee-ui-style';
 let settingsRef = null;
 let onChangeRef = null;
 let testRef = null;
+let statusTimer = null;
 
 const PRESETS = {
   daily: {
@@ -1127,28 +1128,34 @@ function ensureCss() {
 }
 
 function status(text, ms = 4000) {
-  try { if (settingsRef && settingsRef.showStatus === false) return; } catch {}
-  const d = hostDoc() || document;
-  let el = d.getElementById(STATUS_ID);
-  if (!el) {
-    ensureCss();
-    el = d.createElement('div');
-    el.id = STATUS_ID;
-    (d.body || d.documentElement).appendChild(el);
+  try {
+    if (settingsRef && settingsRef.showStatus === false) return;
+    const d = hostDoc() || document;
+    let el = d.getElementById(STATUS_ID);
+    if (!el) {
+      ensureCss();
+      el = d.createElement('div');
+      el.id = STATUS_ID;
+      (d.body || d.documentElement).appendChild(el);
+    }
+    el.innerHTML = `<span style="color:#8b5cf6;margin-right:8px;font-weight:bold;">✦</span>${text}`;
+    el.classList.add('ee-show');
+    
+    // 强制实色显示，防止被主题覆盖
+    el.style.backgroundColor = '#111111';
+    el.style.color = '#ffffff';
+    el.style.opacity = '1';
+    el.style.border = '2px solid #8b5cf6';
+    el.style.zIndex = '3000000';
+    el.style.display = 'flex';
+    
+    clearTimeout(statusTimer);
+    if (ms > 0) statusTimer = setTimeout(() => {
+      el.classList.remove('ee-show');
+    }, ms);
+  } catch (e) {
+    console.warn('[情感引擎] 状态显示失败：', e);
   }
-  el.innerHTML = `<span style="color:#8b5cf6;margin-right:8px;font-weight:bold;">✦</span>${text}`;
-  el.classList.add('ee-show');
-  
-  // 强制实色显示，防止被主题覆盖
-  el.style.backgroundColor = '#111111';
-  el.style.color = '#ffffff';
-  el.style.opacity = '1';
-  el.style.border = '2px solid #8b5cf6';
-  
-  clearTimeout(statusTimer);
-  if (ms > 0) statusTimer = setTimeout(() => {
-    el.classList.remove('ee-show');
-  }, ms);
 }
 function hideStatus() {
   const d = hostDoc() || document;
