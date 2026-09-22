@@ -980,6 +980,7 @@ __defs['ui.js'] = function () {
 
 const { loadSettings, saveSettings, resetSettings } = __req('config.js');
 const { hostDoc } = __req('card.js');
+const { fetchModels } = __req('planner.js');
 
 const BTN_ID = 'ee-fab';
 const PANEL_ID = 'ee-panel';
@@ -1013,143 +1014,134 @@ const PRESETS = {
 };
 
 const CSS = `
-#ee-fab{position:fixed;right:20px;bottom:20px;z-index:99998;width:50px;height:50px;border-radius:16px;
-border:none;cursor:pointer;background:linear-gradient(145deg,#6b7cff,#8b5cf6);color:#fff;font-size:19px;
-box-shadow:0 6px 24px rgba(107,124,255,.45);display:flex;align-items:center;justify-content:center;
-opacity:.92;transition:transform .2s,opacity .2s,box-shadow .2s;font-weight:600;
--webkit-tap-highlight-color:transparent;user-select:none}
-#ee-fab:hover{opacity:1;transform:translateY(-3px) scale(1.03);box-shadow:0 10px 28px rgba(107,124,255,.6)}
-#ee-fab:active{transform:translateY(-1px) scale(.98)}
-#ee-fab.ee-dragging{cursor:grabbing;transition:none}
+:root {
+  --ee-primary: #8b5cf6;
+  --ee-primary-light: #a78bfa;
+  --ee-bg: rgba(15, 15, 20, 0.85);
+  --ee-border: rgba(255, 255, 255, 0.1);
+  --ee-text: #eef2ff;
+  --ee-text-dim: #94a3b8;
+}
 
-#ee-backdrop{position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.5);
-backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
-opacity:0;pointer-events:none;transition:opacity .25s}
-#ee-backdrop.ee-open{opacity:1;pointer-events:auto}
+#ee-fab {
+  position: fixed; right: 24px; bottom: 24px; z-index: 99998;
+  width: 56px; height: 56px; border-radius: 20px;
+  border: none; cursor: pointer;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white; font-size: 22px; font-weight: bold;
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+}
+#ee-fab:hover { transform: translateY(-4px) scale(1.05); box-shadow: 0 12px 40px rgba(99, 102, 241, 0.5); }
+#ee-fab:active { transform: scale(0.95); }
 
-#ee-panel{position:fixed;top:0;right:0;bottom:0;width:min(440px,94vw);z-index:99999;
-background:linear-gradient(180deg,#1c1c26 0%,#141419 100%);color:#e6e6f0;
-overflow-y:auto;padding:0 0 24px;box-shadow:-12px 0 40px rgba(0,0,0,.6);
-font:13px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-transform:translateX(102%);transition:transform .3s cubic-bezier(.4,0,.2,1);
-overscroll-behavior:contain}
-#ee-panel.ee-open{transform:translateX(0)}
-#ee-panel::-webkit-scrollbar{width:6px}
-#ee-panel::-webkit-scrollbar-track{background:transparent}
-#ee-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
-#ee-panel::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+#ee-backdrop {
+  position: fixed; inset: 0; z-index: 99998;
+  background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+  opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+}
+#ee-backdrop.ee-open { opacity: 1; pointer-events: auto; }
 
-.ee-head{position:sticky;top:0;z-index:3;padding:18px 20px 14px;
-background:linear-gradient(180deg,#232330 0%,#1c1c26 100%);
-border-bottom:1px solid rgba(255,255,255,.06)}
-.ee-head-row{display:flex;align-items:center;gap:10px}
-.ee-logo{width:32px;height:32px;border-radius:10px;background:linear-gradient(145deg,#6b7cff,#8b5cf6);
-display:flex;align-items:center;justify-content:center;font-size:16px;flex:none;
-box-shadow:0 3px 10px rgba(107,124,255,.4)}
-.ee-title{font-size:15.5px;font-weight:600;color:#f0f0f8;letter-spacing:.2px;flex:1}
-.ee-close{width:32px;height:32px;border-radius:8px;border:none;background:rgba(255,255,255,.06);
-color:#b0b0c4;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
-transition:background .15s,color .15s;flex:none;-webkit-tap-highlight-color:transparent}
-.ee-close:hover{background:rgba(255,255,255,.12);color:#fff}
-.ee-sub{font-size:11.5px;color:#84849c;margin-top:8px;line-height:1.55}
+#ee-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 95vw); z-index: 99999;
+  background: var(--ee-bg); color: var(--ee-text);
+  box-shadow: -20px 0 60px rgba(0, 0, 0, 0.5);
+  transform: translateX(100%); transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex; flex-direction: column; overflow: hidden;
+  border-left: 1px solid var(--ee-border);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+#ee-panel.ee-open { transform: translateX(0); }
 
-.ee-body{padding:16px 20px 0}
-.ee-sec{margin-bottom:18px}
-.ee-sec-t{font-size:10.5px;font-weight:600;color:#8b9cff;letter-spacing:1.2px;margin-bottom:10px;
-text-transform:uppercase}
+.ee-header {
+  padding: 24px 28px; background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--ee-border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ee-header-title { display: flex; align-items: center; gap: 12px; }
+.ee-header-title i { font-size: 24px; color: var(--ee-primary-light); text-shadow: 0 0 12px rgba(139, 92, 246, 0.5); }
+.ee-header-title h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
 
-.ee-presets{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-.ee-preset{padding:12px 8px;border-radius:12px;background:rgba(255,255,255,.04);
-border:1.5px solid rgba(255,255,255,.06);cursor:pointer;text-align:center;
-transition:all .18s;-webkit-tap-highlight-color:transparent}
-.ee-preset:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.12)}
-.ee-preset.on{border-color:#6b7cff;background:rgba(107,124,255,.12);
-box-shadow:0 0 0 3px rgba(107,124,255,.12)}
-.ee-preset i{font-style:normal;font-size:20px;display:block;margin-bottom:4px}
-.ee-preset b{font-size:12px;font-weight:600;color:#e6e6f0;display:block}
-.ee-preset span{font-size:10px;color:#7f7f96;line-height:1.35;display:block;margin-top:3px}
+.ee-close {
+  background: rgba(255, 255, 255, 0.05); border: none; color: #94a3b8;
+  width: 32px; height: 32px; border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.ee-close:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; }
 
-.ee-card{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.035);
-border:1px solid rgba(255,255,255,.05)}
-.ee-slider-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.ee-slider-top b{font-size:12.5px;color:#dcdcea;font-weight:500}
-.ee-slider-val{font-size:11.5px;color:#8b9cff;background:rgba(139,156,255,.14);
-padding:2px 10px;border-radius:8px;font-weight:500;min-width:32px;text-align:center}
-.ee-range{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:3px;
-background:rgba(255,255,255,.1);outline:none;cursor:pointer}
-.ee-range::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;
-background:linear-gradient(145deg,#6b7cff,#8b5cf6);cursor:pointer;
-box-shadow:0 2px 8px rgba(107,124,255,.55);border:2px solid #fff;box-sizing:border-box}
-.ee-range::-moz-range-thumb{width:18px;height:18px;border:2px solid #fff;border-radius:50%;
-background:#6b7cff;cursor:pointer;box-sizing:border-box}
-.ee-scale{display:flex;justify-content:space-between;font-size:10px;color:#6e6e86;margin-top:6px}
+.ee-content { flex: 1; overflow-y: auto; padding: 20px 28px; scrollbar-width: thin; }
+.ee-content::-webkit-scrollbar { width: 4px; }
+.ee-content::-webkit-scrollbar-thumb { background: var(--ee-border); border-radius: 10px; }
 
-.ee-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
-padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.035);margin-bottom:7px;
-border:1px solid rgba(255,255,255,.04)}
-.ee-row-l{font-size:12.5px;color:#d4d4e4;flex:1;line-height:1.4}
-.ee-row-l small{display:block;font-size:10.5px;color:#77778e;margin-top:2px;line-height:1.4}
-.ee-sw{position:relative;width:42px;height:24px;flex:none}
-.ee-sw input{opacity:0;width:0;height:0;position:absolute}
-.ee-sw i{position:absolute;inset:0;border-radius:12px;background:rgba(255,255,255,.14);
-cursor:pointer;transition:.2s}
-.ee-sw i::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;
-border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-.ee-sw input:checked + i{background:linear-gradient(145deg,#6b7cff,#8b5cf6)}
-.ee-sw input:checked + i::before{transform:translateX(18px)}
+.ee-section { margin-bottom: 28px; }
+.ee-section-label { 
+  display: block; font-size: 12px; font-weight: 700; color: var(--ee-primary-light);
+  text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px;
+}
 
-.ee-lbl{font-size:12px;color:#b8b8cc;margin:12px 0 6px;display:block}
-.ee-inp{width:100%;box-sizing:border-box;background:rgba(0,0,0,.3);color:#e6e6f0;
-border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 12px;font-size:12.5px;
-font-family:inherit;outline:none;transition:.16s;line-height:1.5}
-.ee-inp:focus{border-color:#6b7cff;background:rgba(0,0,0,.42);
-box-shadow:0 0 0 3px rgba(107,124,255,.14)}
-.ee-inp::placeholder{color:#5e5e76}
-textarea.ee-inp{min-height:64px;resize:vertical}
-select.ee-inp{cursor:pointer;appearance:none;-webkit-appearance:none;
-background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%2384849c' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
-background-repeat:no-repeat;background-position:right 12px center;background-size:11px;padding-right:32px}
-.ee-hint{font-size:10.5px;color:#6e6e86;margin-top:5px;line-height:1.5}
+.ee-group { 
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--ee-border);
+  border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+}
 
-.ee-fold{border-radius:12px;background:rgba(255,255,255,.03);
-border:1px solid rgba(255,255,255,.05);overflow:hidden;margin-bottom:8px}
-.ee-fold > summary{cursor:pointer;padding:12px 14px;font-size:12.5px;color:#c4c4d8;list-style:none;
-display:flex;align-items:center;gap:8px;user-select:none;transition:background .15s}
-.ee-fold > summary::-webkit-details-marker{display:none}
-.ee-fold > summary:hover{background:rgba(255,255,255,.03)}
-.ee-fold > summary .ee-ar{margin-left:auto;font-size:10px;color:#6e6e86;transition:transform .2s}
-.ee-fold[open] > summary .ee-ar{transform:rotate(180deg)}
-.ee-fold-in{padding:4px 14px 14px}
+.ee-input-wrap { display: flex; flex-direction: column; gap: 6px; }
+.ee-label { font-size: 13px; color: #cbd5e1; font-weight: 500; }
+.ee-input {
+  background: rgba(0, 0, 0, 0.2); border: 1px solid var(--ee-border);
+  border-radius: 12px; padding: 10px 14px; color: white; font-size: 14px;
+  outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.ee-input:focus { border-color: var(--ee-primary); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); }
 
-.ee-state{margin:14px 20px 0;padding:11px 14px;border-radius:10px;font-size:11.5px;line-height:1.55;
-background:rgba(95,179,161,.09);border:1px solid rgba(95,179,161,.22);color:#8fd6c4}
-.ee-state.warn{background:rgba(208,174,60,.09);border-color:rgba(208,174,60,.22);color:#dcbb5e}
+.ee-row-flex { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
-.ee-foot{display:flex;gap:8px;padding:14px 20px 0;position:sticky;bottom:0;
-background:linear-gradient(180deg,rgba(20,20,25,0),#141419 30%);margin-top:8px}
-.ee-btn{flex:1;padding:10px 0;border:none;border-radius:10px;font-size:13px;cursor:pointer;
-font-family:inherit;transition:.16s;-webkit-tap-highlight-color:transparent;font-weight:500}
-.ee-btn.pri{background:linear-gradient(145deg,#6b7cff,#8b5cf6);color:#fff;font-weight:600;
-box-shadow:0 3px 12px rgba(107,124,255,.35)}
-.ee-btn.pri:hover{filter:brightness(1.1);transform:translateY(-1px);
-box-shadow:0 5px 16px rgba(107,124,255,.45)}
-.ee-btn.gh{background:rgba(255,255,255,.06);color:#b8b8cc;border:1px solid rgba(255,255,255,.06)}
-.ee-btn.gh:hover{background:rgba(255,255,255,.1);color:#dcdcea}
+.ee-btn-row { display: flex; gap: 10px; margin-top: 8px; }
+.ee-btn {
+  flex: 1; padding: 10px 16px; border-radius: 12px; border: none;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.ee-btn-primary { background: var(--ee-primary); color: white; }
+.ee-btn-primary:hover { background: var(--ee-primary-light); transform: translateY(-1px); }
+.ee-btn-secondary { background: rgba(255, 255, 255, 0.08); color: #e2e8f0; }
+.ee-btn-secondary:hover { background: rgba(255, 255, 255, 0.12); }
+.ee-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-#ee-status{position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:999999;
-background:rgba(28,28,38,.96);color:#e6e6f0;border:1px solid rgba(255,255,255,.12);
-border-radius:12px;padding:12px 24px;font-size:13px;max-width:85vw;width:max-content;
-box-shadow:0 8px 32px rgba(0,0,0,.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-transition:opacity .3s,transform .3s;line-height:1.5;text-align:center;pointer-events:none}
+.ee-footer {
+  padding: 24px 28px; background: rgba(0,0,0,0.1); border-top: 1px solid var(--ee-border);
+  display: flex; gap: 12px;
+}
 
-.ee-splash{position:fixed;inset:0;z-index:1000000;background:#141419;display:flex;flex-direction:column;
-align-items:center;justify-content:center;transition:opacity .6s ease;pointer-events:none}
-.ee-splash-logo{width:80px;height:80px;border-radius:22px;background:linear-gradient(145deg,#6b7cff,#8b5cf6);
-display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;
-box-shadow:0 10px 30px rgba(107,124,255,.4);margin-bottom:20px;animation:ee-pulse 2s infinite}
-.ee-splash-t{font-size:20px;font-weight:600;color:#fff;letter-spacing:2px}
-.ee-splash-s{font-size:12px;color:#84849c;margin-top:8px}
-@keyframes ee-pulse{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+#ee-status {
+  position: fixed; left: 50%; top: 24px; transform: translateX(-50%); z-index: 1000000;
+  background: rgba(30, 30, 45, 0.9); color: white; border: 1px solid var(--ee-border);
+  border-radius: 14px; padding: 12px 24px; font-size: 14px; font-weight: 500;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); backdrop-filter: blur(12px);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ee-model-tag {
+  font-size: 11px; background: rgba(139, 92, 246, 0.15); color: var(--ee-primary-light);
+  padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.ee-splash {
+  position: fixed; inset: 0; z-index: 1000001; background: #0f172a;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity 0.8s ease; pointer-events: none;
+}
+.ee-splash-logo {
+  width: 90px; height: 90px; border-radius: 24px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 44px; color: white; margin-bottom: 24px;
+  box-shadow: 0 20px 50px rgba(99, 102, 241, 0.3);
+  animation: ee-float 3s ease-in-out infinite;
+}
+@keyframes ee-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 `;
 
 function ensureCss() {
@@ -1227,121 +1219,113 @@ function stateBox() {
   return `<div class="ee-state">运行中 · ${esc(modeTxt)}模式 · 强度偏移 ${s.intensityBias > 0 ? '+' : ''}${s.intensityBias}${s.showCard ? ' · 卡片已开启' : ''}</div>${warn}`;
 }
 
+let fetchedModels = [];
+let fetching = false;
+
 function panelHtml() {
   const s = settingsRef || {};
   const bias = Number(s.intensityBias ?? 0);
+  
+  const modelOptions = fetchedModels.length > 0 
+    ? fetchedModels.map(m => `<option value="${m}" ${s.plannerModel === m ? 'selected' : ''}>${m}</option>`).join('')
+    : (s.plannerModel ? `<option value="${s.plannerModel}" selected>${s.plannerModel}</option>` : '<option value="">请先点击链接获取模型</option>');
+
   return `
-<div class="ee-head">
-  <div class="ee-head-row">
-    <div class="ee-logo">✦</div>
-    <div class="ee-title">SillyTavern 情感引擎</div>
-    <button class="ee-close" data-act="close" aria-label="关闭">✕</button>
-  </div>
-  <div class="ee-sub">先解构人设与情境，再让模型落笔。<br>修正标签化、极端化与八股腔。</div>
-</div>
-
-<div class="ee-body">
-  <div class="ee-sec">
-    <div class="ee-sec-t">效果档位</div>
-    <div class="ee-presets">${presetCards()}</div>
-  </div>
-
-  <div class="ee-sec">
-    <div class="ee-sec-t">情绪强度</div>
-    <div class="ee-card">
-      <div class="ee-slider-top"><b>全局偏移</b><span class="ee-slider-val" id="ee-bv">${bias > 0 ? '+' : ''}${bias}</span></div>
-      <input type="range" class="ee-range" data-k="intensityBias" data-t="num" min="-2" max="2" step="1" value="${bias}">
-      <div class="ee-scale"><span>更克制</span><span>默认</span><span>更强烈</span></div>
+<div class="ee-header">
+  <div class="ee-header-title">
+    <i>✦</i>
+    <div>
+      <h2>情感引擎</h2>
+      <div style="font-size:11px;color:var(--ee-text-dim);margin-top:2px;">Emotion Engine Configuration</div>
     </div>
-    <div class="ee-hint">Gemini 建议保持 0 或 -1，负数能有效压住动不动就爆发的毛病。</div>
+  </div>
+  <button class="ee-close" data-act="close">✕</button>
+</div>
+
+<div class="ee-content">
+  <div class="ee-section">
+    <span class="ee-section-label">核心设定</span>
+    <div class="ee-group">
+      <div class="ee-presets">${presetCards()}</div>
+      
+      <div style="margin-top:8px;">
+        <div class="ee-row-flex">
+          <span class="ee-label">脚本总开关</span>
+          <label class="ee-sw"><input type="checkbox" data-k="enabled" data-t="bool" ${s.enabled !== false ? 'checked' : ''}><i></i></label>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="ee-sec">
-    <div class="ee-sec-t">基本开关</div>
-    ${sw('enabled', '启用脚本', '关闭后完全不介入生成')}
-    ${sw('showCard', '推演卡片', 'AI 回复顶端可折叠的卡片')}
-    ${sw('cardOpen', '卡片默认展开', '默认折叠在回复里')}
-    ${sw('showStatus', '显示运行提示', '推演与生成时的状态条')}
+  <div class="ee-section">
+    <span class="ee-section-label">推演 API 配置</span>
+    <div class="ee-group">
+      <div class="ee-row-flex">
+        <span class="ee-label">启用独立 API</span>
+        <label class="ee-sw"><input type="checkbox" data-k="useSeparateApi" data-t="bool" ${s.useSeparateApi ? 'checked' : ''}><i></i></label>
+      </div>
+      
+      <div class="ee-input-wrap">
+        <span class="ee-label">API 地址 (Base URL)</span>
+        <input type="text" class="ee-input" data-k="plannerBase" value="${esc(s.plannerBase)}" placeholder="https://api.openai.com/v1">
+      </div>
+      
+      <div class="ee-input-wrap">
+        <span class="ee-label">API Key</span>
+        <input type="password" class="ee-input" data-k="plannerKey" value="${esc(s.plannerKey)}" placeholder="sk-...">
+      </div>
+
+      <div class="ee-btn-row">
+        <button class="ee-btn ee-btn-secondary" data-act="connect" ${fetching ? 'disabled' : ''}>
+          ${fetching ? '连接中...' : '🔌 链接并获取模型'}
+        </button>
+      </div>
+
+      <div class="ee-input-wrap">
+        <span class="ee-label">推演模型 <span class="ee-model-tag">OpenAI Compatible</span></span>
+        <select class="ee-input" data-k="plannerModel">
+          ${modelOptions}
+        </select>
+      </div>
+    </div>
   </div>
 
-  <div class="ee-sec">
-    <div class="ee-sec-t">文风微调</div>
-    ${area('extraNote', '附加要求', '例：对白占比 60% 以上、保持冷幽默', '每次推演都会带上')}
-    ${txt('customForbid', '自定义禁用词', '眸光,不由自主,仿佛', '逗号分隔')}
+  <div class="ee-section">
+    <span class="ee-section-label">情感表达微调</span>
+    <div class="ee-group">
+      <div class="ee-slider-top">
+        <span class="ee-label">情感强度偏移</span>
+        <span class="ee-slider-val" id="ee-bv">${bias > 0 ? '+' : ''}${bias}</span>
+      </div>
+      <input type="range" class="ee-range" data-k="intensityBias" data-t="num" min="-2" max="2" step="1" value="${bias}">
+      <div class="ee-scale"><span>更收敛</span><span>默认</span><span>更强烈</span></div>
+      
+      <div style="margin-top:12px;" class="ee-input-wrap">
+        <span class="ee-label">自定义禁用词</span>
+        <input type="text" class="ee-input" data-k="customForbid" value="${esc(s.customForbid)}" placeholder="眸光,不由自主,仿佛...">
+      </div>
+    </div>
   </div>
 
-  <div class="ee-sec">
-    <div class="ee-sec-t">进阶</div>
-
-    <details class="ee-fold">
-      <summary>触发模式<span class="ee-ar">▾</span></summary>
-      <div class="ee-fold-in">
-        ${sel('mode', '脚本如何介入生成', [
-          ['off', '接管（我已关掉自动回复）· 推荐'],
-          ['rewrite', '重写（酒馆会自动回复）'],
-          ['inject', '注入（只存变量）'],
-          ['manual', '手动（按住 Shift 点按钮）'],
-        ], '推荐在酒馆设置里关掉自动回复后用「接管」')}
+  <div class="ee-section">
+    <span class="ee-section-label">视觉与交互</span>
+    <div class="ee-group">
+      <div class="ee-row-flex">
+        <span class="ee-label">显示推演卡片</span>
+        <label class="ee-sw"><input type="checkbox" data-k="showCard" data-t="bool" ${s.showCard !== false ? 'checked' : ''}><i></i></label>
       </div>
-    </details>
-
-    <details class="ee-fold">
-      <summary>推演用哪个模型<span class="ee-ar">▾</span></summary>
-      <div class="ee-fold-in">
-        ${sw('useSeparateApi', '给推演单独指定模型', '关闭则沿用酒馆当前连接')}
-        ${txt('plannerBase', 'API 地址', 'https://你的中转地址/v1', 'OpenAI 兼容，末尾不要带 /chat/completions')}
-        ${txt('plannerModel', '模型名', 'gemini-2.5-flash', '推演不需要最强模型')}
-        ${txt('plannerKey', 'API Key', '留空表示不需要', '只保存在本机', true)}
-        ${sel('plannerChannel', '调用方式', [
-          ['generate', 'generate（自动带角色卡/世界书）'],
-          ['generateRaw', 'generateRaw（精确控制提示词顺序）'],
-          ['fetch', 'fetch 直连（脱离酒馆预设）'],
-        ], '一般保持默认即可')}
+      <div class="ee-row-flex">
+        <span class="ee-label">卡片默认展开</span>
+        <label class="ee-sw"><input type="checkbox" data-k="cardOpen" data-t="bool" ${s.cardOpen ? 'checked' : ''}><i></i></label>
       </div>
-    </details>
-
-    <details class="ee-fold">
-      <summary>精细参数<span class="ee-ar">▾</span></summary>
-      <div class="ee-fold-in">
-        ${txt('plannerTemperature', '推演温度', '0.45', '0.2-0.6 较稳')}
-        ${txt('plannerMaxTokens', '推演最大 token', '1400', '')}
-        ${txt('plannerTimeout', '推演超时（毫秒）', '90000', '网络慢可调大')}
-        ${sel('declutterLevel', '去八股强度', [
-          [1, '1 · 禁写清单 + 正面写法指引'],
-          [0, '0 · 只给禁写清单'],
-        ], '')}
-        ${sel('cardMode', '卡片展示方式', [
-          ['dom', '注入楼层 DOM（推荐）· 零上下文'],
-          ['block', '代码块渲染 · 持久但占上下文'],
-        ], '')}
-        ${sw('keepDraftLog', '留存推演日志', '以隐藏消息形式保存')}
-      </div>
-    </details>
+    </div>
   </div>
 </div>
 
-${stateBox()}
-
-<div class="ee-foot">
-  <button class="ee-btn pri" data-act="save">保存</button>
-  <button class="ee-btn gh" data-act="test">测试</button>
-  <button class="ee-btn gh" data-act="reset">重置</button>
+<div class="ee-footer">
+  <button class="ee-btn ee-btn-primary" data-act="save">确认并保存</button>
+  <button class="ee-btn ee-btn-secondary" data-act="reset">恢复默认</button>
 </div>`;
-}
-
-function collect() {
-  const hd = hostDoc() || document;
-  const panel = hd.getElementById(PANEL_ID);
-  const next = { ...loadSettings() };
-  if (!panel) return next;
-  panel.querySelectorAll('[data-k]').forEach((el) => {
-    const k = el.dataset.k;
-    const t = el.dataset.t;
-    if (t === 'bool') next[k] = el.checked;
-    else if (t === 'num') next[k] = Number(el.value);
-    else next[k] = el.value;
-  });
-  return next;
 }
 
 function openPanel() {
@@ -1366,19 +1350,52 @@ function refresh() {
   const p = d.getElementById(PANEL_ID);
   if (!p) return;
   const scroll = p.scrollTop;
-  const opened = Array.from(p.querySelectorAll('.ee-fold')).map((el) => el.open);
   p.innerHTML = panelHtml();
   p.scrollTop = scroll;
-  p.querySelectorAll('.ee-fold').forEach((el, i) => { if (opened[i]) el.open = true; });
+}
 
-  const range = p.querySelector('.ee-range');
-  if (range) {
-    range.addEventListener('input', () => {
-      const v = Number(range.value);
-      const out = p.querySelector('#ee-bv');
-      if (out) out.textContent = (v > 0 ? '+' : '') + v;
-    });
+async function handleConnect() {
+  const base = hostDoc().querySelector('[data-k="plannerBase"]')?.value;
+  const key = hostDoc().querySelector('[data-k="plannerKey"]')?.value;
+  
+  if (!base) {
+    status('❌ 请先填写 API 地址', 3000);
+    return;
   }
+  
+  fetching = true;
+  refresh();
+  
+  try {
+    const models = await fetchModels({ base, key });
+    if (models && models.length > 0) {
+      fetchedModels = models;
+      status(`✅ 成功获取 ${models.length} 个模型`, 3000);
+    } else {
+      throw new Error('未返回任何模型');
+    }
+  } catch (e) {
+    console.error('[情感引擎] 链接失败：', e);
+    status(`❌ 链接失败：${e.message}`, 5000);
+  } finally {
+    fetching = false;
+    refresh();
+  }
+}
+
+function collect() {
+  const hd = hostDoc() || document;
+  const panel = hd.getElementById(PANEL_ID);
+  const next = { ...loadSettings() };
+  if (!panel) return next;
+  panel.querySelectorAll('[data-k]').forEach((el) => {
+    const k = el.dataset.k;
+    const t = el.dataset.t;
+    if (t === 'bool') next[k] = el.checked;
+    else if (t === 'num') next[k] = Number(el.value);
+    else next[k] = el.value;
+  });
+  return next;
 }
 
 function setupPanel() {
@@ -1389,6 +1406,7 @@ function setupPanel() {
   if (!d.getElementById(BACKDROP_ID)) {
     const bd = d.createElement('div');
     bd.id = BACKDROP_ID;
+    bd.className = 'ee-backdrop';
     bd.addEventListener('click', closePanel);
     (d.body || d.documentElement).appendChild(bd);
   }
@@ -1400,7 +1418,7 @@ function setupPanel() {
     p.innerHTML = panelHtml();
     (d.body || d.documentElement).appendChild(p);
 
-    p.addEventListener('click', (e) => {
+    p.addEventListener('click', async (e) => {
       const preset = e.target.closest('[data-preset]');
       if (preset) {
         const key = preset.dataset.preset;
@@ -1408,30 +1426,40 @@ function setupPanel() {
         const next = { ...collect(), preset: key, ...pv };
         settingsRef = next;
         refresh();
-        status(`已切换到「${PRESETS[key].label}」档位，记得点保存`);
+        status(`已预设为「${PRESETS[key].label}」模式`, 2000);
         return;
       }
+      
       const btn = e.target.closest('[data-act]');
       if (!btn) return;
       const act = btn.dataset.act;
+      
       if (act === 'close') { closePanel(); return; }
+      if (act === 'connect') { await handleConnect(); return; }
+      
       if (act === 'reset') {
+        if (!confirm('确定要重置所有设置吗？')) return;
         settingsRef = resetSettings();
         if (onChangeRef) onChangeRef(settingsRef);
         refresh();
-        status('已恢复默认设置');
+        status('设置已重置', 2000);
         return;
       }
+      
       if (act === 'save') {
         settingsRef = saveSettings(collect());
         if (onChangeRef) onChangeRef(settingsRef);
-        refresh();
-        status('设置已保存');
+        status('✅ 配置已安全保存至本地', 3000);
+        closePanel();
         return;
       }
-      if (act === 'test') {
-        if (typeof testRef === 'function') testRef();
-        return;
+    });
+    
+    p.addEventListener('input', (e) => {
+      if (e.target.matches('.ee-range')) {
+        const v = Number(e.target.value);
+        const out = p.querySelector('#ee-bv');
+        if (out) out.textContent = (v > 0 ? '+' : '') + v;
       }
     });
   }
@@ -1813,7 +1841,24 @@ async function runPlanner(ctx, settings) {
   return { draft, raw: rawText };
 }
 
-  return { extractJson, normalizeDraft, openaiChat, runPlanner };
+async function fetchModels({ base, key }) {
+  const url = `${normalizeBase(base)}/models`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(key ? { Authorization: `Bearer ${key}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`获取模型失败 ${res.status}：${String(body).slice(0, 100)}`);
+  }
+  const json = await res.json();
+  return (json?.data || []).map(m => typeof m === 'string' ? m : m.id).filter(Boolean);
+}
+
+  return { extractJson, normalizeDraft, openaiChat, runPlanner, fetchModels };
 };
 
 
