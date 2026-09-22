@@ -558,26 +558,47 @@ function hostDoc() {
     try { if (_hostDocCache.body) return _hostDocCache; } catch { _hostDocCache = null; }
   }
 
-  const docs = [];
-  try { if (window.top && window.top.document) docs.push(window.top.document); } catch {}
-  try { if (window.parent && window.parent.document) docs.push(window.parent.document); } catch {}
-  try { docs.push(document); } catch {}
+  let current = window;
+  let outermost = document;
 
-  // 1. 寻找包含酒馆特征元素的 Document
-  for (const d of docs) {
-    try {
-      if (d && (d.querySelector('#chat') || d.querySelector('.mes') || d.querySelector('#chat_log'))) {
-        _hostDocCache = d;
-        return d;
+  // 100% 学习数据库插件的递归穿透逻辑
+  try {
+    while (current) {
+      try {
+        const d = current.document;
+        if (d && d.body) {
+          outermost = d;
+          // 深度验证：必须包含酒馆的核心容器或按钮
+          if (d.querySelector('#chat') || d.querySelector('.mes') || d.querySelector('#extensionsMenuButton')) {
+            _hostDocCache = d;
+            return d;
+          }
+        }
+      } catch (e) {
+        // 跨域了，停止向上探测
+        break;
       }
-    } catch {}
-  }
+      if (current.parent === current || !current.parent) break;
+      current = current.parent;
+    }
+  } catch (e) {}
 
-  // 2. 兜底方案
-  for (const d of docs) {
-    try { if (d && d.body) return d; } catch {}
-  }
-  return document;
+  return outermost;
+}
+
+function gHostWindow() {
+  const d = hostDoc();
+  return d.defaultView || window;
+}
+
+function gHostJQuery() {
+  try {
+    const hw = gHostWindow();
+    // 强制从宿主窗口抓取 jQuery
+    const q = hw.jQuery || hw.$ || window.jQuery || window.$;
+    if (typeof q === 'function') return q;
+  } catch (e) {}
+  return null;
 }
 
 function candidateDocs() {
@@ -881,17 +902,7 @@ function findLastFloor(doc) {
   return null;
 }
 
-function gHostJQuery() {
-  try {
-    const windows = [window, window.parent, window.top];
-    for (const w of windows) {
-      try {
-        if (w && (w.jQuery || w.$)) return w.jQuery || w.$;
-      } catch (e) {}
-    }
-  } catch (e) {}
-  return null;
-}
+
 
 function insertionTarget(floor) {
   if (!floor) return null;
@@ -2132,39 +2143,28 @@ function startGuard() {
   const d = hostDoc();
   if (!d) return;
 
-  let MO = null;
-  try {
-    const dv = d.defaultView || (typeof window !== 'undefined' ? window : null);
-    MO = (dv && dv.MutationObserver) || (typeof MutationObserver !== 'undefined' ? MutationObserver : null);
-  } catch {
-    MO = typeof MutationObserver !== 'undefined' ? MutationObserver : null;
-  }
-  if (!MO) {
-    setInterval(() => {
-      if (settings.showCard && (settings.cardMode || 'dom') === 'dom') restoreCards();
-    }, 3000);
-    return;
-  }
+  // 手机端终极守护：双轨制巡检 (MutationObserver + 轮询)
+  const runRestore = () => {
+    if (!settings.enabled || !settings.showCard) return;
+    restoreCards();
+  };
 
-  let target = null;
-  for (const sel of ['#chat', '#chat_log', 'body']) {
-    try { target = d.querySelector(sel); if (target) break; } catch {}
-  }
-  if (!target) return;
-
+  // 1. 挂载 DOM 变动监听
   try {
-    _guard = new MO(() => {
-      clearTimeout(_guardTimer);
-      _guardTimer = setTimeout(() => {
-        if (!settings.enabled || !settings.showCard) return;
-        if ((settings.cardMode || 'dom') !== 'dom') return;
-        restoreCards();
-      }, 400);
-    });
-    _guard.observe(target, { childList: true, subtree: true });
-  } catch (e) {
-    console.warn('[情感引擎] 守护启动失败：', e);
-  }
+    const dv = d.defaultView || window;
+    const MO = dv.MutationObserver || window.MutationObserver;
+    if (MO) {
+      let target = d.querySelector('#chat') || d.querySelector('#chat_log') || d.body;
+      _guard = new MO(() => {
+        clearTimeout(_guardTimer);
+        _guardTimer = setTimeout(runRestore, 600);
+      });
+      _guard.observe(target, { childList: true, subtree: true });
+    }
+  } catch (e) {}
+
+  // 2. 挂载高频轮询 (防止滑动时 DOM 回收导致美化消失)
+  setInterval(runRestore, 1500);
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
