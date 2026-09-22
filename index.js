@@ -623,13 +623,13 @@ function envReport() {
 const STYLE_ID = 'ee-card-style';
 
 const CARD_CSS = `
-.ee-card{margin:0 0 10px;font:13px/1.65 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
-color:#d6d6e4;-webkit-font-smoothing:antialiased;contain:layout style}
+.ee-card{margin:0 0 12px;font:13px/1.65 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+color:#d6d6e4;-webkit-font-smoothing:antialiased;contain:layout style;display:block!important;clear:both!important;position:relative;z-index:10}
 .ee-card *{box-sizing:border-box}
 .ee-card details{border-radius:11px;background:linear-gradient(135deg,#25252f 0%,#1a1a23 100%);
-border:1px solid rgba(255,255,255,.09);box-shadow:0 2px 10px rgba(0,0,0,.28);overflow:hidden}
+border:1px solid rgba(255,255,255,.09);box-shadow:0 2px 10px rgba(0,0,0,.28);overflow:hidden;width:100%}
 .ee-card summary{cursor:pointer;list-style:none;padding:9px 13px;display:flex;align-items:center;gap:8px;
-user-select:none;transition:background .18s}
+user-select:none;transition:background .18s;outline:none}
 .ee-card summary::-webkit-details-marker{display:none}
 .ee-card summary:hover{background:rgba(255,255,255,.045)}
 .ee-card .ico{width:7px;height:7px;border-radius:50%;background:#7aa2f7;flex:none;
@@ -873,8 +873,19 @@ function findLastFloor(doc) {
 
 function insertionTarget(floor) {
   if (!floor) return null;
-  for (const sel of ['.mes_text', '.mes_block']) {
-    try { const t = floor.querySelector(sel); if (t) return t; } catch {}
+  // 增加更多 SillyTavern 可能的容器选择器
+  const selectors = [
+    '.mes_text', 
+    '.mes_block', 
+    '.chathistory_item_text', 
+    '.mes_container',
+    '.message-content'
+  ];
+  for (const sel of selectors) {
+    try {
+      const t = floor.querySelector(sel);
+      if (t) return t;
+    } catch {}
   }
   return floor;
 }
@@ -1125,11 +1136,20 @@ box-shadow:0 5px 16px rgba(107,124,255,.45)}
 .ee-btn.gh{background:rgba(255,255,255,.06);color:#b8b8cc;border:1px solid rgba(255,255,255,.06)}
 .ee-btn.gh:hover{background:rgba(255,255,255,.1);color:#dcdcea}
 
-#ee-status{position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:99997;
-background:rgba(28,28,38,.96);color:#e6e6f0;border:1px solid rgba(255,255,255,.1);
-border-radius:12px;padding:10px 20px;font-size:12.5px;max-width:72vw;
-box-shadow:0 8px 28px rgba(0,0,0,.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-transition:opacity .2s,transform .2s;line-height:1.5;text-align:center}
+#ee-status{position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:999999;
+background:rgba(28,28,38,.96);color:#e6e6f0;border:1px solid rgba(255,255,255,.12);
+border-radius:12px;padding:12px 24px;font-size:13px;max-width:85vw;width:max-content;
+box-shadow:0 8px 32px rgba(0,0,0,.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+transition:opacity .3s,transform .3s;line-height:1.5;text-align:center;pointer-events:none}
+
+.ee-splash{position:fixed;inset:0;z-index:1000000;background:#141419;display:flex;flex-direction:column;
+align-items:center;justify-content:center;transition:opacity .6s ease;pointer-events:none}
+.ee-splash-logo{width:80px;height:80px;border-radius:22px;background:linear-gradient(145deg,#6b7cff,#8b5cf6);
+display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;
+box-shadow:0 10px 30px rgba(107,124,255,.4);margin-bottom:20px;animation:ee-pulse 2s infinite}
+.ee-splash-t{font-size:20px;font-weight:600;color:#fff;letter-spacing:2px}
+.ee-splash-s{font-size:12px;color:#84849c;margin-top:8px}
+@keyframes ee-pulse{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
 `;
 
 function ensureCss() {
@@ -1495,6 +1515,21 @@ function setupFab() {
     }
     openPanel();
   });
+}
+
+function showSplash() {
+  const d = hostDoc() || document;
+  if (d.getElementById('ee-splash')) return;
+  ensureCss();
+  const el = d.createElement('div');
+  el.id = 'ee-splash';
+  el.className = 'ee-splash';
+  el.innerHTML = `<div class="ee-splash-logo">✦</div><div class="ee-splash-t">情感引擎</div><div class="ee-splash-s">SillyTavern Emotion Engine</div>`;
+  (d.body || d.documentElement).appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 600);
+  }, 1800);
 }
 
 function mountUi(initialSettings, onChange, onManualRun, onTest) {
@@ -2245,6 +2280,7 @@ function diagnose() {
 }
 
 function boot() {
+  showSplash();
   settings = loadSettings();
   syncSettings(settings);
 
@@ -2276,11 +2312,15 @@ function boot() {
           });
         } catch {}
       }
-      console.log('[情感引擎] 事件注册成功');
+      const msg = '[情感引擎] 事件注册成功';
+      console.log(msg);
+      status(msg, 3000);
     } else if (attempt < 20) {
       setTimeout(() => setupEvents(attempt + 1), 500);
     } else {
-      console.warn('[情感引擎] 未找到 eventOn，自动触发可能失效');
+      const msg = '[情感引擎] 未找到 eventOn，自动触发可能失效';
+      console.warn(msg);
+      status(msg, 5000);
     }
   };
 
@@ -2292,11 +2332,22 @@ function boot() {
     const d = hostDoc();
     let floors = -1;
     try { floors = d ? d.querySelectorAll('.mes').length : -1; } catch {}
-    console.log(`[情感引擎] 自检 · ${envReport()} 楼层=${floors} 卡片=${settings.cardMode || 'dom'}`);
+    const report = envReport();
+    const modeTxt = settings.mode;
+    const cardMode = settings.cardMode || 'dom';
+    
+    const bootMsg = `[情感引擎] 已启动 · 模式：${modeTxt} · 卡片：${cardMode}`;
+    const diagMsg = `[情感引擎] 自检 · ${report} 楼层=${floors} 卡片=${cardMode}`;
+    
+    console.log(bootMsg);
+    console.log(diagMsg);
+    
+    // 依次显示状态，确保手机端能看到
+    status(bootMsg, 4000);
+    setTimeout(() => status(diagMsg, 5000), 4200);
+
     if (floors === 0) console.warn('[情感引擎] 主页面上没找到 .mes 楼层，可能聊天尚未加载。');
   }, 1200);
-
-  console.log(`[情感引擎] 已启动 · 模式：${settings.mode} · 卡片：${settings.cardMode || 'dom'}`);
 }
 
 function ready(fn) {
