@@ -554,36 +554,26 @@ function clamp(v, lo, hi, def) {
 let _hostDocCache = null;
 
 function hostDoc() {
-  if (_hostDocCache) {
-    try { if (_hostDocCache.body) return _hostDocCache; } catch { _hostDocCache = null; }
-  }
+  // 强制实时探测，解决 iframe 缓存问题
+  const targets = [];
+  try { if (window.top && window.top.document) targets.push(window.top.document); } catch(e) {}
+  try { if (window.parent && window.parent.document) targets.push(window.parent.document); } catch(e) {}
+  try { if (document) targets.push(document); } catch(e) {}
 
-  let current = window;
-  let outermost = document;
-
-  // 100% 学习数据库插件的递归穿透逻辑
-  try {
-    while (current) {
-      try {
-        const d = current.document;
-        if (d && d.body) {
-          outermost = d;
-          // 深度验证：必须包含酒馆的核心容器或按钮
-          if (d.querySelector('#chat') || d.querySelector('.mes') || d.querySelector('#extensionsMenuButton')) {
-            _hostDocCache = d;
-            return d;
-          }
-        }
-      } catch (e) {
-        // 跨域了，停止向上探测
-        break;
+  for (const doc of targets) {
+    try {
+      if (!doc || !doc.body) continue;
+      // 必须包含酒馆关键元素才认领
+      if (doc.querySelector('#chat') || doc.querySelector('#chat_log') || doc.querySelector('.mes')) {
+        return doc; 
       }
-      if (current.parent === current || !current.parent) break;
-      current = current.parent;
-    }
-  } catch (e) {}
-
-  return outermost;
+    } catch(e) {}
+  }
+  
+  for (const doc of targets) {
+    try { if (doc && doc.body) return doc; } catch(e) {}
+  }
+  return document;
 }
 
 function gHostWindow() {
