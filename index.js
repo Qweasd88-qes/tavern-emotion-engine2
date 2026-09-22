@@ -1594,10 +1594,13 @@ function mountUi(initialSettings, onChange, onManualRun, onTest) {
 
   const trySetup = (attempt = 0) => {
     const d = hostDoc();
-    if (d && d.body) {
+    // 强制检查是否有特征元素，或者已经重试多次
+    const hasTavern = d.querySelector('#chat') || d.querySelector('#chat_log');
+    if (d && d.body && (hasTavern || attempt > 15)) {
+      console.log('[情感引擎] 正在挂载 UI 至目标 Document...', d === document ? '当前窗口' : '顶层窗口');
       setupFab();
       setupPanel();
-      setupMenuButton(); // 关键：注入官方菜单
+      setupMenuButton();
       return;
     }
     if (attempt < 30) setTimeout(() => trySetup(attempt + 1), 200);
