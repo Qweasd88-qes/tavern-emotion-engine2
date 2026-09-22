@@ -843,81 +843,57 @@ function renderCardElement(draft, settings, degraded, doc) {
 function findFloor(messageId, doc) {
   const d = doc || hostDoc();
   if (!d) return null;
+  const $ = gHostJQuery();
+  
   if (messageId !== undefined && messageId !== null) {
     const id = String(messageId);
-    const sels = [
-      `#chat .mes[mesid="${id}"]`,
-      `.mes[mesid="${id}"]`,
-      `[mesid="${id}"]`,
-      `.mes[data-mesid="${id}"]`,
-      `[data-mesid="${id}"]`,
-    ];
-    for (const s of sels) {
+    if ($) {
+      const $el = $(`.mes[mesid="${id}"], .mes[data-mesid="${id}"], [mesid="${id}"]`, d);
+      if ($el.length) return $el[0];
+    }
+    const idSels = [`[mesid="${id}"]`, `[data-mesid="${id}"]`];
+    for (const s of idSels) {
       try { const el = d.querySelector(s); if (el) return el; } catch {}
     }
   }
   return null;
 }
 
-function findLastFloor(doc) {
-  const d = doc || hostDoc();
-  if (!d) return null;
-  for (const sel of ['#chat .mes', '.mes', '#chat_log .mes']) {
-    try {
-      const list = d.querySelectorAll(sel);
-      if (list && list.length) return list[list.length - 1];
-    } catch {}
+function gHostJQuery() {
+  const windows = [window];
+  try { if (window.parent && window.parent !== window) windows.push(window.parent); } catch {}
+  try { if (window.top && window.top !== window) windows.push(window.top); } catch {}
+  for (const w of windows) {
+    try { if (w.jQuery || w.$) return w.jQuery || w.$; } catch {}
   }
   return null;
 }
 
-function insertionTarget(floor) {
-  if (!floor) return null;
-  // 增加更多 SillyTavern 可能的容器选择器
-  const selectors = [
-    '.mes_text', 
-    '.mes_block', 
-    '.chathistory_item_text', 
-    '.mes_container',
-    '.message-content'
-  ];
-  for (const sel of selectors) {
-    try {
-      const t = floor.querySelector(sel);
-      if (t) return t;
-    } catch {}
-  }
-  return floor;
-}
-
-function alreadyHasCard(floor) {
-  if (!floor) return false;
-  try { return Boolean(floor.querySelector('[data-ee-card]')); } catch { return false; }
-}
-
 function injectCardIntoFloor(messageId, draft, settings, degraded) {
   const d = hostDoc();
-  if (!d) return { ok: false, reason: '拿不到页面 document' };
+  if (!d) return { ok: false, reason: '无 document' };
 
-  let floor = findFloor(messageId, d);
-  let usedFallback = false;
-  if (!floor) { floor = findLastFloor(d); usedFallback = true; }
-  if (!floor) return { ok: false, reason: '页面上找不到任何楼层' };
-  if (alreadyHasCard(floor)) return { ok: true, reason: '已有卡片' };
+  const floor = findFloor(messageId, d);
+  if (!floor) return { ok: false, reason: '找不到消息楼层' };
+  if (floor.querySelector('[data-ee-card]')) return { ok: true, reason: '已有卡片' };
 
   ensureStyle(d);
-  const el = renderCardElement(draft, settings, degraded, d);
-  if (!el) return { ok: false, reason: '创建卡片元素失败' };
+  const cardEl = renderCardElement(draft, settings, degraded, d);
+  if (!cardEl) return { ok: false, reason: '创建卡片失败' };
 
   const target = insertionTarget(floor);
   if (!target) return { ok: false, reason: '找不到插入位置' };
 
   try {
-    if (target.firstChild) target.insertBefore(el, target.firstChild);
-    else target.appendChild(el);
-    return { ok: true, reason: usedFallback ? '已插入（用了兜底楼层）' : '已插入' };
+    const $ = gHostJQuery();
+    if ($) {
+      $(target).prepend(cardEl);
+    } else {
+      target.insertBefore(cardEl, target.firstChild);
+    }
+    return { ok: true, reason: '注入成功' };
   } catch (e) {
-    return { ok: false, reason: '插入失败：' + String(e && e.message) };
+    return { ok: false, reason: 'DOM操作失败: ' + e.message };
   }
 }
 
@@ -1017,128 +993,86 @@ const CSS = `
 :root {
   --ee-primary: #8b5cf6;
   --ee-primary-grad: linear-gradient(135deg, #6366f1, #8b5cf6);
-  --ee-bg: rgba(20, 20, 30, 0.9);
-  --ee-border: rgba(255, 255, 255, 0.12);
-  --ee-text: #f8fafc;
-  --ee-text-dim: #94a3b8;
-  --ee-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  --ee-bg: #1e1e2e; /* 改为完全不透明的深色 */
+  --ee-group-bg: #27273a;
+  --ee-border: rgba(255, 255, 255, 0.15);
+  --ee-text: #ffffff;
+  --ee-text-dim: #a1a1aa;
+  --ee-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
 }
 
 #ee-fab {
-  position: fixed; left: 50%; bottom: 100px; z-index: 2000000;
-  width: 60px; height: 60px; border-radius: 22px;
+  position: fixed; left: 50%; bottom: 80px; z-index: 2000000;
+  width: 64px; height: 64px; border-radius: 20px;
   transform: translateX(-50%);
-  border: 1px solid rgba(255, 255, 255, 0.2); cursor: pointer;
-  background: var(--ee-primary-grad);
-  color: white; font-size: 24px; font-weight: bold;
-  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.5), inset 0 0 15px rgba(255, 255, 255, 0.2);
+  border: 2px solid #3f3f46; cursor: pointer;
+  background: #1e1e2e; /* 实体背景 */
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
   display: flex; align-items: center; justify-content: center;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   user-select: none; touch-action: none;
 }
-#ee-fab:active { transform: translateX(-50%) scale(0.9); }
-#ee-fab.ee-dragging { transition: none; opacity: 0.8; }
+#ee-fab i { 
+  background: var(--ee-primary-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  font-size: 28px; font-style: normal; font-weight: 800;
+}
 
 #ee-backdrop {
   position: fixed; inset: 0; z-index: 2000001;
-  background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+  background: rgba(0, 0, 0, 0.85); /* 调深遮罩 */
+  opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
 }
 #ee-backdrop.ee-open { opacity: 1; pointer-events: auto; }
 
 #ee-panel {
   position: fixed; top: 50%; left: 50%; z-index: 2000002;
-  width: min(420px, 92vw); max-height: 85vh;
+  width: min(440px, 94vw); max-height: 90vh;
   background: var(--ee-bg); color: var(--ee-text);
   box-shadow: var(--ee-shadow);
-  transform: translate(-50%, -45%) scale(0.9); opacity: 0;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate(-50%, -48%) scale(0.95); opacity: 0;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex; flex-direction: column; overflow: hidden;
-  border: 1px solid var(--ee-border); border-radius: 28px;
-  font-family: -apple-system, system-ui, sans-serif;
+  border: 1px solid var(--ee-border); border-radius: 24px;
+  font-family: system-ui, -apple-system, sans-serif;
   pointer-events: none;
 }
 #ee-panel.ee-open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
 
-.ee-header {
-  padding: 20px 24px; background: rgba(255, 255, 255, 0.04);
-  border-bottom: 1px solid var(--ee-border);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.ee-header-title { display: flex; align-items: center; gap: 14px; }
-.ee-header-title i { 
-  font-size: 26px; font-style: normal;
-  background: var(--ee-primary-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.4));
-}
-.ee-header-title h2 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -0.5px; }
-
-.ee-close {
-  background: rgba(255, 255, 255, 0.08); border: none; color: #94a3b8;
-  width: 34px; height: 34px; border-radius: 12px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; font-size: 16px;
-}
-
-.ee-content { flex: 1; overflow-y: auto; padding: 24px; scrollbar-width: none; }
-.ee-content::-webkit-scrollbar { display: none; }
-
-.ee-section { margin-bottom: 24px; }
-.ee-section-label { 
-  display: block; font-size: 11px; font-weight: 800; color: var(--ee-primary-light);
-  text-transform: uppercase; letter-spacing: 2px; margin-bottom: 14px; opacity: 0.8;
-}
-
-.ee-group { 
-  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--ee-border);
-  border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 14px;
-}
-
-.ee-input-wrap { display: flex; flex-direction: column; gap: 8px; }
-.ee-label { font-size: 13px; color: #94a3b8; font-weight: 600; }
-.ee-input {
-  background: rgba(0, 0, 0, 0.3); border: 1px solid var(--ee-border);
-  border-radius: 14px; padding: 12px 16px; color: white; font-size: 14px;
-  outline: none; transition: all 0.2s;
-}
-.ee-input:focus { border-color: var(--ee-primary); background: rgba(0,0,0,0.4); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); }
-
-.ee-footer {
-  padding: 20px 24px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--ee-border);
-  display: flex; gap: 12px;
-}
-
+/* 灵动岛样式状态条 - 完全不透明 */
 #ee-status {
-  position: fixed; left: 50%; top: 30px; transform: translateX(-50%) translateY(-20px); z-index: 3000000;
-  background: rgba(15, 23, 42, 0.9); color: #fff; border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 100px; padding: 10px 24px; font-size: 13px; font-weight: 600;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(12px);
-  opacity: 0; pointer-events: none; transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-  display: flex; align-items: center; gap: 10px;
+  position: fixed; left: 50%; top: 20px; transform: translateX(-50%) translateY(-30px); z-index: 3000000;
+  background: #111111; color: #ffffff; border: 2px solid #8b5cf6;
+  border-radius: 50px; padding: 12px 28px; font-size: 14px; font-weight: 700;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+  opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  display: flex; align-items: center; gap: 12px;
+  width: max-content;
 }
 #ee-status.ee-show { opacity: 1; transform: translateX(-50%) translateY(0); }
-#ee-status::before { content: '✦'; color: var(--ee-primary-light); animation: ee-spin 3s linear infinite; }
 
+/* 启动闪屏 - 完全不透明 */
 .ee-splash {
-  position: fixed; inset: 0; z-index: 4000000; background: #020617;
+  position: fixed; inset: 0; z-index: 4000000; background: #000000;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none;
+  transition: opacity 0.8s ease; pointer-events: none;
 }
 .ee-splash-logo {
-  width: 100px; height: 100px; border-radius: 30px;
+  width: 110px; height: 110px; border-radius: 32px;
   background: var(--ee-primary-grad);
   display: flex; align-items: center; justify-content: center;
-  font-size: 50px; color: white; margin-bottom: 28px;
-  box-shadow: 0 0 60px rgba(99, 102, 241, 0.4);
-  position: relative;
-}
-.ee-splash-logo::after {
-  content: ''; position: absolute; inset: -10px; border-radius: 40px;
-  border: 2px solid var(--ee-primary); opacity: 0.3; animation: ee-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  font-size: 54px; color: white; margin-bottom: 30px;
+  box-shadow: 0 0 80px rgba(99, 102, 241, 0.6);
 }
 
-@keyframes ee-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes ee-ping { 75%, 100% { transform: scale(1.4); opacity: 0; } }
+.ee-card {
+  margin: 12px 0; font-size: 13px; line-height: 1.6;
+  color: #e2e8f0; contain: content;
+  display: block !important; width: 100% !important;
+}
+.ee-card details {
+  border-radius: 16px; background: #1a1a26;
+  border: 1px solid #33334d; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
 `;
 
 function ensureCss() {
