@@ -1524,22 +1524,58 @@ function showSplash() {
   }, 1800);
 }
 
+function setupMenuButton() {
+  const d = hostDoc();
+  const $ = gHostJQuery();
+  if (!d || !$) return;
+
+  const tryInsert = (retry = 0) => {
+    const menu = d.querySelector('#extensionsMenu');
+    if (!menu) {
+      if (retry < 30) setTimeout(() => tryInsert(retry + 1), 1000);
+      return;
+    }
+
+    if (d.getElementById('ee-menu-item')) return;
+
+    const item = d.createElement('div');
+    item.id = 'ee-menu-item';
+    item.className = 'list-group-item flex-container flexGap5 interactable';
+    item.style.cssText = 'cursor:pointer; padding:10px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; gap:10px;';
+    item.innerHTML = `
+      <div class="fa-fw fa-solid fa-brain" style="color:#8b5cf6;"></div>
+      <span style="font-weight:bold;">情感引擎 (Emotion Engine)</span>
+    `;
+    item.addEventListener('click', () => {
+      // 尝试关闭下拉菜单
+      try { $(d.querySelector('#extensionsMenuButton')).trigger('click'); } catch(e) {}
+      openPanel();
+    });
+    
+    menu.prepend(item);
+    console.log('[情感引擎] 成功集成至酒馆扩展菜单');
+    status('✅ 已成功集成至扩展菜单', 2000);
+  };
+
+  tryInsert();
+}
+
 function mountUi(initialSettings, onChange, onManualRun, onTest) {
   settingsRef = initialSettings;
   onChangeRef = onChange;
   testRef = onTest;
   window.__ee_manual_run__ = onManualRun;
 
-  // 等主页面就绪
   const trySetup = (attempt = 0) => {
     const d = hostDoc();
     if (d && d.body) {
       setupFab();
       setupPanel();
+      setupMenuButton(); // 关键：注入官方菜单
       return;
     }
     if (attempt < 30) setTimeout(() => trySetup(attempt + 1), 200);
-    else console.warn('[情感引擎] 拿不到主页面 document，UI 未初始化');
+    else console.warn('[情感引擎] UI 初始化失败');
   };
   trySetup();
 
@@ -2041,25 +2077,29 @@ async function prependCard(draft, degraded, messageId) {
 
 async function restoreCards() {
   if (!settings.showCard) return 0;
-  if ((settings.cardMode || 'dom') !== 'dom') return 0;
   const d = hostDoc();
   if (!d) return 0;
+  const $ = gHostJQuery();
   ensureStyle(d);
 
   const jobs = [];
-  for (const [id, rec] of _draftCache.entries()) {
-    jobs.push({ id, draft: rec.draft, degraded: rec.degraded });
-  }
   try {
-    const all = readMessages(0, { include_swipes: false });
-    for (const m of all || []) {
-      const ex = m?.extra;
-      if (!ex || !ex.ee_draft) continue;
-      const key = String(m.message_id);
-      if (_draftCache.has(key)) continue;
-      jobs.push({ id: m.message_id, draft: ex.ee_draft, degraded: !!ex.ee_degraded });
+    // 强制从酒馆现有的楼层里找需要补录的
+    const allMes = d.querySelectorAll('.mes');
+    for (const m of allMes) {
+      const mesId = m.getAttribute('mesid') || m.getAttribute('data-mesid');
+      if (!mesId) continue;
+      
+      // 检查是否已有卡片，如果没有但 extra 里有数据，则加入任务
+      if (!m.querySelector('[data-ee-card]')) {
+        // 尝试从本地缓存中恢复
+        if (_draftCache.has(String(mesId))) {
+          const rec = _draftCache.get(String(mesId));
+          jobs.push({ id: mesId, draft: rec.draft, degraded: rec.degraded });
+        }
+      }
     }
-  } catch {}
+  } catch (e) {}
 
   let n = 0;
   for (const j of jobs) {
