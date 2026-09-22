@@ -558,35 +558,12 @@ function hostDoc() {
     try { if (_hostDocCache.body) return _hostDocCache; } catch { _hostDocCache = null; }
   }
 
-  let current = window;
-  let outermostDoc = document;
+  const docs = [];
+  try { if (window.top && window.top.document) docs.push(window.top.document); } catch {}
+  try { if (window.parent && window.parent.document) docs.push(window.parent.document); } catch {}
+  try { docs.push(document); } catch {}
 
-  // 向上探测最外层可访问的 document
-  while (current) {
-    try {
-      if (current.document && current.document.body) {
-        outermostDoc = current.document;
-      }
-      if (current.parent === current || !current.parent) break;
-      current = current.parent;
-    } catch (e) {
-      break; // 跨域限制，停止探测
-    }
-  }
-
-  // 进一步验证是否包含酒馆关键元素
-  try {
-    if (outermostDoc.querySelector('#chat') || outermostDoc.querySelector('.mes') || outermostDoc.querySelector('#chat_log')) {
-      _hostDocCache = outermostDoc;
-      return outermostDoc;
-    }
-  } catch (e) {}
-
-  // 如果最外层没找到（可能在某些特殊的嵌入环境下），尝试在所有层级找一遍
-  const docs = [document];
-  try { if (window.parent && window.parent !== window) docs.push(window.parent.document); } catch {}
-  try { if (window.top && window.top !== window) docs.push(window.top.document); } catch {}
-
+  // 1. 寻找包含酒馆特征元素的 Document
   for (const d of docs) {
     try {
       if (d && (d.querySelector('#chat') || d.querySelector('.mes') || d.querySelector('#chat_log'))) {
@@ -596,7 +573,11 @@ function hostDoc() {
     } catch {}
   }
 
-  return outermostDoc;
+  // 2. 兜底方案
+  for (const d of docs) {
+    try { if (d && d.body) return d; } catch {}
+  }
+  return document;
 }
 
 function candidateDocs() {
@@ -1576,7 +1557,7 @@ function mountUi(initialSettings, onChange, onManualRun, onTest) {
 function syncSettings(s) { settingsRef = s; }
 function currentSettings() { return settingsRef; }
 
-  return { PRESETS, status, hideStatus, mountUi, syncSettings, currentSettings };
+  return { PRESETS, status, hideStatus, mountUi, syncSettings, currentSettings, showSplash };
 };
 
 
@@ -1846,7 +1827,7 @@ const { loadSettings, validateApi, normalizeBase } = __req('config.js');
 const { runPlanner } = __req('planner.js');
 const { compileDirectives, fallbackDirectives } = __req('prompts.js');
 const { renderCard, hasCard, injectCardIntoFloor, ensureStyle, hostDoc, envReport } = __req('card.js');
-const { mountUi, syncSettings, status, hideStatus } = __req('ui.js');
+const { mountUi, syncSettings, status, hideStatus, showSplash } = __req('ui.js');
 
 const NS = 'ee';
 const DRAFT_VAR = 'ee.draft';
@@ -2384,7 +2365,14 @@ ready(() => setTimeout(boot, 300));
 try {
   __req('index.js');
 } catch (e) {
-  console.error('[情感引擎] 启动失败', e);
-  try { if (typeof toastr !== 'undefined') toastr.error('情感引擎启动失败：' + (e && e.message || e)); } catch (_) {}
+  const errMsg = '[情感引擎] 启动失败: ' + (e && e.message || e);
+  console.error(errMsg, e);
+  try {
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;top:5px;left:5px;right:5px;z-index:999999;background:#b00;color:white;padding:12px;font-size:13px;border-radius:8px;box-shadow:0 4px 15px rgba(0,0,0,0.5);text-align:center;';
+    div.textContent = errMsg;
+    (document.body || document.documentElement).appendChild(div);
+    setTimeout(() => div.remove(), 8000);
+  } catch(_) {}
 }
 })();
